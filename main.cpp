@@ -1,6 +1,7 @@
 #include <iostream>
+#include <math.h>
 
-// V1.0.1
+// V1.0.2
 
 using namespace std;
 
@@ -25,6 +26,7 @@ struct linkedList{
         }
         else
         {
+            creatingPair->previous = last;
             last->next = creatingPair;
         }
         dataPointCount++;
@@ -65,7 +67,31 @@ struct linkedList{
             dataPointCount--;
         }
     }
+
+    void moveTimeZero(){
+        if (dataPointCount < 1) return;
+        dataPair* pointerPair = last;
+        while (pointerPair != 0){
+            pointerPair->time -= first->time;
+            pointerPair = pointerPair->previous;
+        }
+    }
+
+    double countGoodness(double tau, double zeroA){
+        double holderGood = 0;
+        dataPair* pointerPair = first;
+        while (pointerPair != 0){
+            holderGood += pow( zeroA * exp(-(pointerPair->time / tau)) - pointerPair->intensity , 2  );
+            cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
+            pointerPair = pointerPair->next;
+        }
+        return holderGood;
+    }
 };
+
+
+
+
 
 int main()
 {
@@ -93,5 +119,7 @@ int main()
     cout << testList->maxPeak() << endl;
     testList->clearTillTime(testList->maxPeak());
     cout << testList->dataPointCount << endl;
+    testList->moveTimeZero();
+    cout << testList->countGoodness(3,8) << endl;
     return 0;
 }
