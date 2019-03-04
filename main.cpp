@@ -1,7 +1,8 @@
 #include <iostream>
+#include <fstream>
 #include <math.h>
 
-// V1.0.2
+// V1.0.3
 
 using namespace std;
 
@@ -87,9 +88,27 @@ struct linkedList{
         }
         return holderGood;
     }
+
+    void readFile(char fileName[255]){
+        ifstream inputFile(fileName);
+        while (true) {
+                double timeFromFile;
+                int intensityFromFile;
+                inputFile >> timeFromFile >> intensityFromFile;
+                addPair(timeFromFile,intensityFromFile);
+                if( inputFile.eof() ) break;
+        }
+    }
 };
 
-
+void inputFileName(char* name){
+    bool input;
+    cout << "Input new file [1] or use default [0]." << endl;
+    cin >> input;
+    if (input == false) return;
+    cout << "Input file name" << endl;
+    cin >> name;
+}
 
 
 
@@ -104,6 +123,7 @@ int main()
     if (firstLaser) cout << firstLaser->time << endl; else cout << "doesn't exist" << endl;
     */
     linkedList* testList = new linkedList;
+    /*
     testList->addPair(0,0);
     testList->addPair(1,1);
     testList->addPair(2,3);
@@ -115,6 +135,10 @@ int main()
     testList->addPair(8,2);
     testList->addPair(9,2);
     testList->addPair(10,1);
+    */
+    char nameOfFile[255] = "dataForTesting.txt";
+    inputFileName(nameOfFile);
+    testList->readFile(nameOfFile);
     cout << testList->dataPointCount << endl;
     cout << testList->maxPeak() << endl;
     testList->clearTillTime(testList->maxPeak());
