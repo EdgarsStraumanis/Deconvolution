@@ -1,8 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <math.h>
+#include <windows.h>
 
-// V1.0.3
+// V1.0.4
 
 using namespace std;
 
@@ -83,7 +84,7 @@ struct linkedList{
         dataPair* pointerPair = first;
         while (pointerPair != 0){
             holderGood += pow( zeroA * exp(-(pointerPair->time / tau)) - pointerPair->intensity , 2  );
-            cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
+            // cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
             pointerPair = pointerPair->next;
         }
         return holderGood;
@@ -98,6 +99,64 @@ struct linkedList{
                 addPair(timeFromFile,intensityFromFile);
                 if( inputFile.eof() ) break;
         }
+    }
+
+    double findSectorTau(double accuracy, double second, double baseIntensity){
+        double sectorFirst = 0;
+        double sectorSecond = second;
+        double gap = sectorSecond - sectorFirst;
+
+        for(;countGoodness(sectorFirst + 0.5 * gap, baseIntensity) > countGoodness(sectorSecond + 0.5 * gap, baseIntensity);){
+                cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity) << endl;
+                sectorFirst = sectorSecond;
+                sectorSecond = sectorFirst + gap;
+        }
+
+        //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity) << endl;
+        for(; sectorSecond - sectorFirst > accuracy  ;){
+            if (countGoodness(sectorFirst + 0.5 * gap, baseIntensity) < countGoodness(sectorSecond + 0.5 * gap, baseIntensity))
+                {
+                    gap /= 2;
+                    sectorSecond = sectorFirst + gap;
+                }
+            else
+                {
+                    gap /= 2;
+                    sectorFirst = sectorSecond;
+                    sectorSecond = sectorFirst + gap;
+                }
+        }
+        return ((sectorSecond + sectorFirst)/2);
+    }
+
+    double findSectorIntensity(double accuracy, double second, double baseTau){
+        double sectorFirst = 0;
+        double sectorSecond = second;
+        double gap = sectorSecond - sectorFirst;
+        /*
+        for(;countGoodness(baseTau, sectorFirst + 0.5 * gap) > countGoodness(baseTau, sectorSecond + 0.5 * gap);)
+        {
+                    cout << countGoodness(baseTau, sectorFirst + 0.5 * gap) << " " << countGoodness(baseTau, sectorSecond + 0.5 * gap) << endl;
+                    sectorFirst = sectorSecond;
+                    sectorSecond = sectorFirst + gap;
+                    Sleep(1);
+        }
+        */
+        //cout << countGoodness(sectorFirst + 0.5 * gap, first->intensity) << " " << countGoodness(sectorSecond + 0.5 * gap, first->intensity) << endl;
+        for(; sectorSecond - sectorFirst > accuracy  ;){
+            if (countGoodness(baseTau, sectorFirst + 0.5 * gap) < countGoodness(baseTau, sectorSecond + 0.5 * gap))
+                {
+                    gap /= 2;
+                    sectorSecond = sectorFirst + gap;
+                }
+            else
+                {
+                    gap /= 2;
+                    sectorFirst = sectorSecond;
+                    sectorSecond = sectorFirst + gap;
+                }
+        }
+        return ((sectorSecond + sectorFirst)/2);
     }
 };
 
@@ -139,11 +198,19 @@ int main()
     char nameOfFile[255] = "dataForTesting.txt";
     inputFileName(nameOfFile);
     testList->readFile(nameOfFile);
-    cout << testList->dataPointCount << endl;
-    cout << testList->maxPeak() << endl;
+    //cout << testList->dataPointCount << endl;
+    //cout << testList->maxPeak() << endl;
     testList->clearTillTime(testList->maxPeak());
-    cout << testList->dataPointCount << endl;
+    // cout << testList->dataPointCount << endl;
     testList->moveTimeZero();
-    cout << testList->countGoodness(3,8) << endl;
+    //cout << testList->countGoodness(3,8) << endl;
+    double tau = testList->last->time;
+    double inten = testList->first->intensity;
+    cout << "Tau=" << tau << " A0=" << inten << " Goodness=" << (testList->countGoodness(tau, inten) / testList->dataPointCount) << endl;
+    for(int i = 0; i < 2; i++){
+    tau = testList->findSectorTau(0.0001, tau, inten);
+    inten = testList->findSectorIntensity(0.0001, inten, tau);
+    cout << "Tau=" << tau << " A0=" << inten << " Goodness=" << (testList->countGoodness(tau, inten) / testList->dataPointCount) << endl;
+    }
     return 0;
 }
