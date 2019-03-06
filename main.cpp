@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.0.4
+// V1.1.1
 
 using namespace std;
 
@@ -101,6 +101,24 @@ struct linkedList{
         }
     }
 
+    void drawGoodnessToFile(char fileName[255], double zeroY, double tau, double zeroA){
+        ofstream outputFile(fileName);
+        dataPair* pointerPair = first;
+        while (pointerPair != 0){
+            outputFile << pointerPair->time << " " << (pointerPair->intensity - (zeroA * exp(-(pointerPair->time / tau)) + zeroY) ) << endl;
+            pointerPair = pointerPair->next;
+        }
+    }
+
+    void drawExpToFile(char fileName[255], double zeroY, double tau, double zeroA){
+        ofstream outputFile(fileName);
+        dataPair* pointerPair = first;
+        while (pointerPair != 0){
+            outputFile << pointerPair->time << " " << (zeroA * exp(-(pointerPair->time / tau)) + zeroY) << endl;
+            pointerPair = pointerPair->next;
+        }
+    }
+
     double findSectorTau(double accuracy, double second, double baseIntensity, double baseZeroY){
         double sectorFirst = 0;
         double sectorSecond = last->time;
@@ -193,7 +211,6 @@ void inputFileName(char* name){
 }
 
 
-
 int main()
 {
     cout << 1/exp(1) << endl;
@@ -219,9 +236,11 @@ int main()
     testList->addPair(9,2);
     testList->addPair(10,1);
     */
-    char nameOfFile[255] = "dataTwo.txt";
+    char nameOfInputFile[255] = "dataTwo.txt";
+    char nameOfOutputFileExp[255] = "resultExp.txt";
+    char nameOfOutputFileNLLS[255] = "resultNLLS.txt"; //NLLS --- non-linear least squares method
     //inputFileName(nameOfFile);
-    testList->readFile(nameOfFile);
+    testList->readFile(nameOfInputFile);
     //cout << testList->dataPointCount << endl;
     //cout << testList->maxPeak() << endl;
     testList->clearTillTime(testList->maxPeak());
@@ -235,16 +254,16 @@ int main()
     double yZero = (yZeroTwo - yZeroOne)/2;
     double accuracy = 0.00001;
 
-    cout << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-        for(int i = 0; i < 1000; i++){
+    // cout << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+    for(int i = 0; i < 1000; i++){
         if ( yZeroTwo - yZeroOne <= accuracy ) break;
         yZero = testList->findSectorZeroY(accuracy, inten, tau, yZeroOne, yZeroTwo);
         tau = testList->findSectorTau(accuracy, tau, inten, yZero);
         inten = testList->findSectorIntensity(accuracy, inten, tau, yZero);
-
-        //tau = testList->findSectorTau(accuracy, tau, inten, yZero);
-
-        cout << i << " " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+        // cout << i << " " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
     }
+    //inputFileName(nameOfOutputFileExp);
+    testList->drawGoodnessToFile(nameOfOutputFileNLLS, yZero, tau, inten);
+    testList->drawExpToFile(nameOfOutputFileExp, yZero, tau, inten);
     return 0;
 }
