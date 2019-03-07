@@ -3,11 +3,11 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.1.1
+// V1.1.2
 
 using namespace std;
 
-struct dataPair{
+struct dataPair{ // node to save data which knows next and previous nodes connected in the linked list to travel through nodes
     double time;
     int intensity;
     dataPair* next = 0;
@@ -26,8 +26,7 @@ struct linkedList{
         if (dataPointCount == 0){
             first = creatingPair;
         }
-        else
-        {
+        else{
             creatingPair->previous = last;
             last->next = creatingPair;
         }
@@ -92,7 +91,7 @@ struct linkedList{
 
     void readFile(char fileName[255]){
         ifstream inputFile(fileName);
-        while (true) {
+        while (true){
                 double timeFromFile;
                 int intensityFromFile;
                 inputFile >> timeFromFile >> intensityFromFile;
@@ -124,23 +123,21 @@ struct linkedList{
         double sectorSecond = last->time;
         double gap = sectorSecond - sectorFirst;
         for(;countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) > countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY);){
-                cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY) << endl;
-                sectorFirst = sectorSecond;
-                sectorSecond = sectorFirst + gap;
+            //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY) << endl;
+            sectorFirst = sectorSecond;
+            sectorSecond = sectorFirst + gap;
         }
         //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity) << endl;
         for(; sectorSecond - sectorFirst > accuracy  ;){
-            if (countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) < countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY))
-                {
-                    gap /= 2;
-                    sectorSecond = sectorFirst + gap;
-                }
-            else
-                {
-                    gap /= 2;
-                    sectorFirst = sectorSecond;
-                    sectorSecond = sectorFirst + gap;
-                }
+            if (countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) < countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY)){
+                gap /= 2;
+                sectorSecond = sectorFirst + gap;
+            }
+            else{
+                gap /= 2;
+                sectorFirst = sectorSecond;
+                sectorSecond = sectorFirst + gap;
+            }
         }
         return ((sectorSecond + sectorFirst)/2);
     }
@@ -161,32 +158,21 @@ struct linkedList{
         //cout << countGoodness(sectorFirst + 0.5 * gap, first->intensity) << " " << countGoodness(sectorSecond + 0.5 * gap, first->intensity) << endl;
         for(; sectorSecond - sectorFirst > accuracy  ;){
             if (countGoodness(baseTau, sectorFirst + 0.5 * gap, baseZeroY) < countGoodness(baseTau, sectorSecond + 0.5 * gap, baseZeroY))
-                {
-                    gap /= 2;
-                    sectorSecond = sectorFirst + gap;
-                }
-            else
-                {
-                    gap /= 2;
-                    sectorFirst = sectorSecond;
-                    sectorSecond = sectorFirst + gap;
-                }
+            {
+                gap /= 2;
+                sectorSecond = sectorFirst + gap;
+            }
+            else{
+                gap /= 2;
+                sectorFirst = sectorSecond;
+                sectorSecond = sectorFirst + gap;
+            }
         }
         return ((sectorSecond + sectorFirst)/2);
     }
 
     double findSectorZeroY(double accuracy, double baseIntensity, double baseTau, double &sectorFirst, double &sectorSecond){
         double gap = sectorSecond - sectorFirst;
-        /*
-        for(;countGoodness(baseTau, sectorFirst + 0.5 * gap) > countGoodness(baseTau, sectorSecond + 0.5 * gap);)
-        {
-                    cout << countGoodness(baseTau, sectorFirst + 0.5 * gap) << " " << countGoodness(baseTau, sectorSecond + 0.5 * gap) << endl;
-                    sectorFirst = sectorSecond;
-                    sectorSecond = sectorFirst + gap;
-                    Sleep(1);
-        }
-        */
-        //cout << countGoodness(sectorFirst + 0.5 * gap, first->intensity) << " " << countGoodness(sectorSecond + 0.5 * gap, first->intensity) << endl;
         if ( sectorSecond - sectorFirst > accuracy ){
             if (countGoodness(baseTau, baseIntensity, sectorFirst + 0.25 * gap) < countGoodness(baseTau, baseIntensity, sectorFirst + 0.75 * gap))
                 {
@@ -202,28 +188,117 @@ struct linkedList{
 };
 
 void inputFileName(char* name){
-    bool input;
-    cout << "Input new file [1] or use default [0]." << endl;
-    cin >> input;
-    if (input == false) return;
-    cout << "Input file name" << endl;
+    cout << "Input file name";
     cin >> name;
 }
 
-
 int main()
 {
-    cout << 1/exp(1) << endl;
-    /*
+    cout << "End work [0], Assign reading file [1], Read file [2], Clear till first Maximum [3]," << endl;
+    cout << "Move graph time to 0 [4], Fit exp [5], Assign exp output file [6]," << endl;
+    cout << "Assign difference output file [7] Write exp to file [8] Write difference to file [9]" << endl;
+
+    int command;
+    linkedList* testList = new linkedList;
+    char nameOfInputFile[255] = "dataTwo.txt";
+    char nameOfOutputFileExp[255] = "resultExp.txt";
+    char nameOfOutputFileNLLS[255] = "resultNLLS.txt"; //NLLS --- non-linear least squares method
+    bool caseTrue = true;
+
+    double tau = 1; //testList->last->time;
+    double inten = 0;
+    double yZeroOne = 0;
+    double yZeroTwo = 0;
+    double yZero = (yZeroTwo - yZeroOne)/2;
+    double accuracy = 0.00001;
+
+    while (caseTrue == true){
+        cout << "Type function: ";
+        cin >> command;
+        switch (command) {
+        case 0 :
+            {
+                cout << "Ending work..." << endl;
+                caseTrue = false;
+                break;
+            }
+        case 1 :
+            {
+                inputFileName(nameOfInputFile);
+                cout << "File selected for reading" << endl;
+                break;
+            }
+        case 2 :
+            {
+                testList->readFile(nameOfInputFile);
+                cout << "File read" << endl;
+                break;
+            }
+        case 3 :
+            {
+                testList->clearTillTime(testList->maxPeak());
+                cout << "Data cleared till first maximum" << endl;
+                break;
+            }
+        case 4 :
+            {
+                testList->moveTimeZero();
+                cout << "Graph moved on time axis to 0" << endl;
+                break;
+            }
+        case 5 :
+            {
+                inten = testList->first->intensity;
+                yZeroTwo = testList->first->intensity;
+                yZero = (yZeroTwo - yZeroOne)/2;
+                // cout << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+                for(int i = 0; i < 1000; i++){
+                    if ( yZeroTwo - yZeroOne <= accuracy ) break;
+                    yZero = testList->findSectorZeroY(accuracy, inten, tau, yZeroOne, yZeroTwo);
+                    tau = testList->findSectorTau(accuracy, tau, inten, yZero);
+                    inten = testList->findSectorIntensity(accuracy, inten, tau, yZero);
+                    // cout << i << " " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+                }
+                cout << "Exponent fitted to graph - " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+                break;
+            }
+        case 6 :
+            {
+                inputFileName(nameOfOutputFileExp);
+                cout << "File selected for Exp" << endl;
+                break;
+            }
+        case 7 :
+            {
+                inputFileName(nameOfOutputFileNLLS);
+                cout << "File selected for Difference" << endl;
+                break;
+            }
+        case 8 :
+            {
+                testList->drawGoodnessToFile(nameOfOutputFileExp, yZero, tau, inten);
+                cout << "Exp written to file - " << nameOfOutputFileExp << endl;
+                break;
+            }
+        case 9 :
+            {
+                testList->drawExpToFile(nameOfOutputFileNLLS, yZero, tau, inten);
+                cout << "Difference written to file - " << nameOfOutputFileNLLS << endl;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
+/*
     dataPair* firstLaser = new dataPair;
     firstLaser->time = 1;
     firstLaser->intensity = 2;
     cout << firstLaser->time << endl;
     delete firstLaser;
     if (firstLaser) cout << firstLaser->time << endl; else cout << "doesn't exist" << endl;
-    */
-    linkedList* testList = new linkedList;
-    /*
+
     testList->addPair(0,0);
     testList->addPair(1,1);
     testList->addPair(2,3);
@@ -235,35 +310,4 @@ int main()
     testList->addPair(8,2);
     testList->addPair(9,2);
     testList->addPair(10,1);
-    */
-    char nameOfInputFile[255] = "dataTwo.txt";
-    char nameOfOutputFileExp[255] = "resultExp.txt";
-    char nameOfOutputFileNLLS[255] = "resultNLLS.txt"; //NLLS --- non-linear least squares method
-    //inputFileName(nameOfFile);
-    testList->readFile(nameOfInputFile);
-    //cout << testList->dataPointCount << endl;
-    //cout << testList->maxPeak() << endl;
-    testList->clearTillTime(testList->maxPeak());
-    // cout << testList->dataPointCount << endl;
-    testList->moveTimeZero();
-    //cout << testList->countGoodness(3,8) << endl;
-    double tau = 1; //testList->last->time;
-    double inten = testList->first->intensity;
-    double yZeroOne = 0;
-    double yZeroTwo = testList->first->intensity;
-    double yZero = (yZeroTwo - yZeroOne)/2;
-    double accuracy = 0.00001;
-
-    // cout << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-    for(int i = 0; i < 1000; i++){
-        if ( yZeroTwo - yZeroOne <= accuracy ) break;
-        yZero = testList->findSectorZeroY(accuracy, inten, tau, yZeroOne, yZeroTwo);
-        tau = testList->findSectorTau(accuracy, tau, inten, yZero);
-        inten = testList->findSectorIntensity(accuracy, inten, tau, yZero);
-        // cout << i << " " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-    }
-    //inputFileName(nameOfOutputFileExp);
-    testList->drawGoodnessToFile(nameOfOutputFileNLLS, yZero, tau, inten);
-    testList->drawExpToFile(nameOfOutputFileExp, yZero, tau, inten);
-    return 0;
-}
+*/
