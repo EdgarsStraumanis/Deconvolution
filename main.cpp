@@ -7,18 +7,21 @@
 
 using namespace std;
 
-struct dataPair{ // node to save data which knows next and previous nodes connected in the linked list to travel through nodes
+// node to save data which knows next and previous nodes connected in the linked list to travel through nodes
+struct dataPair{
     double time;
     int intensity;
     dataPair* next = 0;
     dataPair* previous = 0;
 };
 
+// allows to hold a list of data-points - time, intensity; Contains a various amount of functions to work with the data
 struct linkedList{
     dataPair* first = 0;
     dataPair* last = 0;
     int dataPointCount = 0;
 
+    // Allows to add data-points to list as last element
     void addPair(double makeTime, int makeIntensity){
         dataPair* creatingPair = new dataPair;
         creatingPair->time = makeTime;
@@ -34,6 +37,7 @@ struct linkedList{
         last = creatingPair;
     }
 
+    // Clears read data-pairs from first to last
     void clearList(){
         dataPair* deletePair = first;
         while (deletePair != 0){
@@ -47,6 +51,7 @@ struct linkedList{
         last = 0;
     }
 
+    // Find time-point with maximum intensity
     double maxPeak(){
         if (dataPointCount < 1) return -1;
         dataPair* findPair = first;
@@ -58,6 +63,7 @@ struct linkedList{
         return maxPair->time;
     }
 
+    //Removes all data-pairs from beginning till specified time but not including time that was written
     void clearTillTime(double timeTill){
         dataPair* deletePair = first;
         while (deletePair !=0 && deletePair->time < timeTill){
@@ -69,6 +75,7 @@ struct linkedList{
         }
     }
 
+    // Deducts all time values by first data-pair's time to move time to zero
     void moveTimeZero(){
         if (dataPointCount < 1) return;
         dataPair* pointerPair = last;
@@ -78,6 +85,7 @@ struct linkedList{
         }
     }
 
+    // Counts how good is the fitting of specific exponent to data that was input
     double countGoodness(double tau, double zeroA, double zeroY){
         double holderGood = 0;
         dataPair* pointerPair = first;
@@ -89,6 +97,7 @@ struct linkedList{
         return holderGood;
     }
 
+    // Reads data from file and sends it to other function to add to list
     void readFile(char fileName[255]){
         ifstream inputFile(fileName);
         while (true){
@@ -100,6 +109,7 @@ struct linkedList{
         }
     }
 
+    // write to file a pair of data < time, difference between read data and fitted function at time moment>
     void drawGoodnessToFile(char fileName[255], double zeroY, double tau, double zeroA){
         ofstream outputFile(fileName);
         dataPair* pointerPair = first;
@@ -109,6 +119,7 @@ struct linkedList{
         }
     }
 
+    // write to file a pair of data < time, fitted function at time moment >
     void drawExpToFile(char fileName[255], double zeroY, double tau, double zeroA){
         ofstream outputFile(fileName);
         dataPair* pointerPair = first;
@@ -118,6 +129,7 @@ struct linkedList{
         }
     }
 
+    // Tries to find sector for Tau for exp using golden cut method by reducing a range by halving the region whichever fits better
     double findSectorTau(double accuracy, double second, double baseIntensity, double baseZeroY){
         double sectorFirst = 0;
         double sectorSecond = last->time;
@@ -142,6 +154,7 @@ struct linkedList{
         return ((sectorSecond + sectorFirst)/2);
     }
 
+    // Tries to find sector for Intensity0 for exp using golden cut method by reducing a range by halving the region whichever fits better
     double findSectorIntensity(double accuracy, double second, double baseTau, double baseZeroY){
         double sectorFirst = 0;
         double sectorSecond = first->intensity;
@@ -171,6 +184,7 @@ struct linkedList{
         return ((sectorSecond + sectorFirst)/2);
     }
 
+    // Tries to find sector for Y0 for exp using golden cut method by reducing a range by halving the region whichever fits better
     double findSectorZeroY(double accuracy, double baseIntensity, double baseTau, double &sectorFirst, double &sectorSecond){
         double gap = sectorSecond - sectorFirst;
         if ( sectorSecond - sectorFirst > accuracy ){
@@ -187,6 +201,7 @@ struct linkedList{
     }
 };
 
+// prompt to ask for file name
 void inputFileName(char* name){
     cout << "Input file name";
     cin >> name;
@@ -194,6 +209,19 @@ void inputFileName(char* name){
 
 int main()
 {
+    /*
+    Application currently focuses on analyzing experimental data that is saved in 2 columns <time, intensity>
+    The data can be read [1] by specified file name [2]
+    Data can be changed
+        - Clear till first maximum [3]
+        - Change time scale so the time starts with 0 [4]
+    Data can be analyzed
+        - Fitting Exp to data [5]
+    Data can be written to file
+        - Exp fitted to data [6] from selected folder [8]
+        - Difference from Exp and read data [7] from selected folder [9]
+    Stop analyzing data [0]
+    */
     cout << "End work [0], Assign reading file [1], Read file [2], Clear till first Maximum [3]," << endl;
     cout << "Move graph time to 0 [4], Fit exp [5], Assign exp output file [6]," << endl;
     cout << "Assign difference output file [7] Write exp to file [8] Write difference to file [9]" << endl;
