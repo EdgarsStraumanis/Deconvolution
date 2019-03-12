@@ -3,9 +3,32 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.1.2
+// V1.1.3
 
 using namespace std;
+
+struct twoExp{
+    double tauZero = 1;
+    double aZero = 0;
+    double tauOne = 1;
+    double aOne = 0;
+    double yZeroOne = 0;
+    double yZeroTwo = 0;
+    double yZero = (yZeroTwo - yZeroOne)/2;
+};
+
+struct threeExp{
+    double tauZero = 1;
+    double aZero = 0;
+    double tauOne = 1;
+    double aOne = 0;
+    double tauTwo = 1;
+    double aTwo = 0;
+    double yZeroOne = 0;
+    double yZeroTwo = 0;
+    double yZero = (yZeroTwo - yZeroOne)/2;
+
+};
 
 // node to save data which knows next and previous nodes connected in the linked list to travel through nodes
 struct dataPair{
@@ -201,6 +224,35 @@ struct linkedList{
     }
 };
 
+struct oneExp{
+    double tauZero = 1;
+    double aZero = 0;
+    double yZeroOne = 0;
+    double yZeroTwo = 0;
+    double yZero = (yZeroTwo - yZeroOne)/2;
+
+    void setupData(linkedList* experimentalData){
+        aZero = experimentalData->first->intensity;
+        yZeroTwo = experimentalData->first->intensity;
+        yZero = (yZeroTwo - yZeroOne)/2;
+    }
+    /*
+    void startFitting(){
+    // cout << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+        for(int i = 0; i < 1000; i++){
+            if ( yZeroTwo - yZeroOne <= accuracy ) break;
+            yZero = testList->findSectorZeroY(accuracy, inten, tau, yZeroOne, yZeroTwo);
+            tau = testList->findSectorTau(accuracy, tau, inten, yZero);
+            inten = testList->findSectorIntensity(accuracy, inten, tau, yZero);
+            // cout << i << " " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+        }
+        cout << "Exponent fitted to graph - " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+        break;
+    }
+    */
+};
+
+
 // prompt to ask for file name
 void inputFileName(char* name){
     cout << "Input file name";
@@ -232,6 +284,8 @@ int main()
     char nameOfOutputFileExp[255] = "resultExp.txt";
     char nameOfOutputFileNLLS[255] = "resultNLLS.txt"; //NLLS --- non-linear least squares method
     bool caseTrue = true;
+
+    oneExp* testOneExp = new oneExp;
 
     double tau = 1; //testList->last->time;
     double inten = 0;
@@ -312,6 +366,12 @@ int main()
             {
                 testList->drawExpToFile(nameOfOutputFileNLLS, yZero, tau, inten);
                 cout << "Difference written to file - " << nameOfOutputFileNLLS << endl;
+                break;
+            }
+        case 10 :
+            {
+                testOneExp->setupData(testList);
+                cout << "Exponents fitted to graph - " << testOneExp->aZero << endl;
                 break;
             }
         }
