@@ -3,9 +3,17 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.1.3
+// V1.1.4
 
 using namespace std;
+
+struct oneExp{
+    double tauZero = 1;
+    double aZero = 0;
+    double yZeroOne = 0;
+    double yZeroTwo = 0;
+    double yZero = (yZeroTwo - yZeroOne)/2;
+};
 
 struct twoExp{
     double tauZero = 1;
@@ -43,6 +51,10 @@ struct linkedList{
     dataPair* first = 0;
     dataPair* last = 0;
     int dataPointCount = 0;
+    oneExp* oneExpFit = new oneExp;
+    twoExp* twoExpFit = new twoExp;
+    threeExp* threeExpFit = new threeExp;
+    double accuracy = 0.00001;
 
     // Allows to add data-points to list as last element
     void addPair(double makeTime, int makeIntensity){
@@ -133,38 +145,39 @@ struct linkedList{
     }
 
     // write to file a pair of data < time, difference between read data and fitted function at time moment>
-    void drawGoodnessToFile(char fileName[255], double zeroY, double tau, double zeroA){
+    void drawGoodnessToFile1(char fileName[255]){
         ofstream outputFile(fileName);
         dataPair* pointerPair = first;
         while (pointerPair != 0){
-            outputFile << pointerPair->time << " " << (pointerPair->intensity - (zeroA * exp(-(pointerPair->time / tau)) + zeroY) ) << endl;
+            outputFile << pointerPair->time << " " << (pointerPair->intensity - (oneExpFit->aZero * exp(-(pointerPair->time / oneExpFit->tauZero)) + oneExpFit->yZero) ) << endl;
             pointerPair = pointerPair->next;
         }
     }
 
     // write to file a pair of data < time, fitted function at time moment >
-    void drawExpToFile(char fileName[255], double zeroY, double tau, double zeroA){
+    void drawExpToFile1(char fileName[255]){
         ofstream outputFile(fileName);
         dataPair* pointerPair = first;
         while (pointerPair != 0){
-            outputFile << pointerPair->time << " " << (zeroA * exp(-(pointerPair->time / tau)) + zeroY) << endl;
+            outputFile << pointerPair->time << " " << (oneExpFit->aZero * exp(-(pointerPair->time / oneExpFit->tauZero)) + oneExpFit->yZero) << endl;
             pointerPair = pointerPair->next;
         }
     }
 
+    // -----------One exponent fitting-------------
     // Tries to find sector for Tau for exp using golden cut method by reducing a range by halving the region whichever fits better
-    double findSectorTau(double accuracy, double second, double baseIntensity, double baseZeroY){
+    double findSectorTau1(){
         double sectorFirst = 0;
         double sectorSecond = last->time;
         double gap = sectorSecond - sectorFirst;
-        for(;countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) > countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY);){
+        for(;countGoodness(sectorFirst + 0.5 * gap, oneExpFit->aZero, oneExpFit->yZero) > countGoodness(sectorSecond + 0.5 * gap, oneExpFit->aZero, oneExpFit->yZero);){
             //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY) << endl;
             sectorFirst = sectorSecond;
             sectorSecond = sectorFirst + gap;
         }
         //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity) << endl;
         for(; sectorSecond - sectorFirst > accuracy  ;){
-            if (countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) < countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY)){
+            if (countGoodness(sectorFirst + 0.5 * gap, oneExpFit->aZero, oneExpFit->yZero) < countGoodness(sectorSecond + 0.5 * gap, oneExpFit->aZero, oneExpFit->yZero)){
                 gap /= 2;
                 sectorSecond = sectorFirst + gap;
             }
@@ -176,9 +189,8 @@ struct linkedList{
         }
         return ((sectorSecond + sectorFirst)/2);
     }
-
     // Tries to find sector for Intensity0 for exp using golden cut method by reducing a range by halving the region whichever fits better
-    double findSectorIntensity(double accuracy, double second, double baseTau, double baseZeroY){
+    double findSectorIntensity1(){
         double sectorFirst = 0;
         double sectorSecond = first->intensity;
         double gap = sectorSecond - sectorFirst;
@@ -193,7 +205,7 @@ struct linkedList{
         */
         //cout << countGoodness(sectorFirst + 0.5 * gap, first->intensity) << " " << countGoodness(sectorSecond + 0.5 * gap, first->intensity) << endl;
         for(; sectorSecond - sectorFirst > accuracy  ;){
-            if (countGoodness(baseTau, sectorFirst + 0.5 * gap, baseZeroY) < countGoodness(baseTau, sectorSecond + 0.5 * gap, baseZeroY))
+            if (countGoodness(oneExpFit->tauZero, sectorFirst + 0.5 * gap, oneExpFit->yZero) < countGoodness(oneExpFit->tauZero, sectorSecond + 0.5 * gap, oneExpFit->yZero))
             {
                 gap /= 2;
                 sectorSecond = sectorFirst + gap;
@@ -206,50 +218,80 @@ struct linkedList{
         }
         return ((sectorSecond + sectorFirst)/2);
     }
-
     // Tries to find sector for Y0 for exp using golden cut method by reducing a range by halving the region whichever fits better
-    double findSectorZeroY(double accuracy, double baseIntensity, double baseTau, double &sectorFirst, double &sectorSecond){
-        double gap = sectorSecond - sectorFirst;
-        if ( sectorSecond - sectorFirst > accuracy ){
-            if (countGoodness(baseTau, baseIntensity, sectorFirst + 0.25 * gap) < countGoodness(baseTau, baseIntensity, sectorFirst + 0.75 * gap))
+    double findSectorZeroY1(){
+        double gap = oneExpFit->yZeroTwo - oneExpFit->yZeroOne;
+        if ( oneExpFit->yZeroTwo - oneExpFit->yZeroOne > accuracy ){
+            if (countGoodness(oneExpFit->tauZero, oneExpFit->aZero, oneExpFit->yZeroOne + 0.25 * gap) < countGoodness(oneExpFit->tauZero, oneExpFit->aZero, oneExpFit->yZeroOne + 0.75 * gap))
                 {
-                    sectorSecond = sectorFirst + gap/2;
+                    oneExpFit->yZeroTwo = oneExpFit->yZeroOne + gap/2;
                 }
             else
                 {
-                    sectorFirst = sectorFirst + gap/2;
+                    oneExpFit->yZeroOne = oneExpFit->yZeroOne + gap/2;
                 }
+        }
+        return ((oneExpFit->yZeroTwo + oneExpFit->yZeroOne)/2);
+    }
+    // Fit one exp
+    void findOneFittinExp(){
+        oneExpFit->aZero = first->intensity;
+        oneExpFit->yZeroTwo = first->intensity;
+        oneExpFit->yZero = (oneExpFit->yZeroTwo + oneExpFit->yZeroOne)/2;
+
+        // First phase
+        for(int i = 0; i < 1000; i++){
+            if ( oneExpFit->yZeroTwo - oneExpFit->yZeroOne <= accuracy ) break;
+            oneExpFit->yZero = findSectorZeroY1();
+            oneExpFit->tauZero = findSectorTau1();
+            oneExpFit->aZero = findSectorIntensity1();
+        }
+        cout << "Exponent fitted to graph - " << "Tau=" << oneExpFit->tauZero << " A0=" << oneExpFit->aZero << " Y0=" << oneExpFit->yZero << " Goodness=" << (countGoodness(oneExpFit->tauZero, oneExpFit->aZero, oneExpFit->yZero) / (dataPointCount)) << endl;
+    }
+    // -----------Two exponent fitting--------------
+    double countGoodness(double tauZero, double aZero, double tauOne, double aOne, double yZero){
+        double holderGood = 0;
+        dataPair* pointerPair = first;
+        while (pointerPair != 0){
+            holderGood += pow( aZero * exp(-(pointerPair->time / tauZero)) + aOne * exp(-(pointerPair->time / tauOne)) + yZero - pointerPair->intensity , 2  );
+            // cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
+            pointerPair = pointerPair->next;
+        }
+        return holderGood;
+    }
+    void firstExpFit(){
+        findOneFittinExp();
+        twoExpFit->aZero = oneExpFit->aZero;
+        twoExpFit->tauZero = oneExpFit->tauZero;
+        twoExpFit->yZero = oneExpFit->yZero;
+    }
+    double findSectorTau22(){
+        double sectorFirst = 0;
+        double sectorSecond = last->time;
+        double gap = sectorSecond - sectorFirst;
+        for(;countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorFirst + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero) > countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorSecond + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero);){
+            //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY) << endl;
+            sectorFirst = sectorSecond;
+            sectorSecond = sectorFirst + gap;
+        }
+        //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity) << endl;
+        for(; sectorSecond - sectorFirst > accuracy  ;){
+            if (countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorFirst + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero) < countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorSecond + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero)){
+                gap /= 2;
+                sectorSecond = sectorFirst + gap;
+            }
+            else{
+                gap /= 2;
+                sectorFirst = sectorSecond;
+                sectorSecond = sectorFirst + gap;
+            }
         }
         return ((sectorSecond + sectorFirst)/2);
     }
-};
-
-struct oneExp{
-    double tauZero = 1;
-    double aZero = 0;
-    double yZeroOne = 0;
-    double yZeroTwo = 0;
-    double yZero = (yZeroTwo - yZeroOne)/2;
-
-    void setupData(linkedList* experimentalData){
-        aZero = experimentalData->first->intensity;
-        yZeroTwo = experimentalData->first->intensity;
-        yZero = (yZeroTwo - yZeroOne)/2;
+    void findTwoFittingExp(){
+        firstExpFit();
+        twoExpFit->tauOne = findSectorTau22();
     }
-    /*
-    void startFitting(){
-    // cout << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-        for(int i = 0; i < 1000; i++){
-            if ( yZeroTwo - yZeroOne <= accuracy ) break;
-            yZero = testList->findSectorZeroY(accuracy, inten, tau, yZeroOne, yZeroTwo);
-            tau = testList->findSectorTau(accuracy, tau, inten, yZero);
-            inten = testList->findSectorIntensity(accuracy, inten, tau, yZero);
-            // cout << i << " " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-        }
-        cout << "Exponent fitted to graph - " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-        break;
-    }
-    */
 };
 
 
@@ -286,12 +328,6 @@ int main()
     bool caseTrue = true;
 
     oneExp* testOneExp = new oneExp;
-
-    double tau = 1; //testList->last->time;
-    double inten = 0;
-    double yZeroOne = 0;
-    double yZeroTwo = 0;
-    double yZero = (yZeroTwo - yZeroOne)/2;
     double accuracy = 0.00001;
 
     while (caseTrue == true){
@@ -330,18 +366,7 @@ int main()
             }
         case 5 :
             {
-                inten = testList->first->intensity;
-                yZeroTwo = testList->first->intensity;
-                yZero = (yZeroTwo - yZeroOne)/2;
-                // cout << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-                for(int i = 0; i < 1000; i++){
-                    if ( yZeroTwo - yZeroOne <= accuracy ) break;
-                    yZero = testList->findSectorZeroY(accuracy, inten, tau, yZeroOne, yZeroTwo);
-                    tau = testList->findSectorTau(accuracy, tau, inten, yZero);
-                    inten = testList->findSectorIntensity(accuracy, inten, tau, yZero);
-                    // cout << i << " " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
-                }
-                cout << "Exponent fitted to graph - " << "Tau=" << tau << " A0=" << inten << " Y0=" << yZero << " Goodness=" << (testList->countGoodness(tau, inten, yZero) / (testList->dataPointCount)) << endl;
+                testList->findOneFittinExp();
                 break;
             }
         case 6 :
@@ -358,20 +383,22 @@ int main()
             }
         case 8 :
             {
-                testList->drawGoodnessToFile(nameOfOutputFileExp, yZero, tau, inten);
+                testList->drawGoodnessToFile1(nameOfOutputFileExp);
                 cout << "Exp written to file - " << nameOfOutputFileExp << endl;
                 break;
             }
         case 9 :
             {
-                testList->drawExpToFile(nameOfOutputFileNLLS, yZero, tau, inten);
+                testList->drawExpToFile1(nameOfOutputFileNLLS);
                 cout << "Difference written to file - " << nameOfOutputFileNLLS << endl;
                 break;
             }
         case 10 :
             {
-                testOneExp->setupData(testList);
-                cout << "Exponents fitted to graph - " << testOneExp->aZero << endl;
+                testList->findTwoFittingExp();
+                cout << testList->twoExpFit->tauOne << endl;
+                //testOneExp->setupData(testList);
+                //cout << "Exponents fitted to graph - " << testOneExp->aZero << endl;
                 break;
             }
         }
@@ -379,23 +406,3 @@ int main()
     return 0;
 }
 
-/*
-    dataPair* firstLaser = new dataPair;
-    firstLaser->time = 1;
-    firstLaser->intensity = 2;
-    cout << firstLaser->time << endl;
-    delete firstLaser;
-    if (firstLaser) cout << firstLaser->time << endl; else cout << "doesn't exist" << endl;
-
-    testList->addPair(0,0);
-    testList->addPair(1,1);
-    testList->addPair(2,3);
-    testList->addPair(3,7);
-    testList->addPair(4,8);
-    testList->addPair(5,6);
-    testList->addPair(6,4);
-    testList->addPair(7,3);
-    testList->addPair(8,2);
-    testList->addPair(9,2);
-    testList->addPair(10,1);
-*/
