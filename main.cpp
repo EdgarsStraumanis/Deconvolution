@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.1.4
+// V1.1.5
 
 using namespace std;
 
@@ -16,9 +16,9 @@ struct oneExp{
 };
 
 struct twoExp{
-    double tauZero = 1;
+    double tauZero = 0;
     double aZero = 0;
-    double tauOne = 1;
+    double tauOne = 0;
     double aOne = 0;
     double yZeroOne = 0;
     double yZeroTwo = 0;
@@ -54,7 +54,7 @@ struct linkedList{
     oneExp* oneExpFit = new oneExp;
     twoExp* twoExpFit = new twoExp;
     threeExp* threeExpFit = new threeExp;
-    double accuracy = 0.00001;
+    double accuracy = 0.0000001;
 
     // Allows to add data-points to list as last element
     void addPair(double makeTime, int makeIntensity){
@@ -263,18 +263,43 @@ struct linkedList{
         findOneFittinExp();
         twoExpFit->aZero = oneExpFit->aZero;
         twoExpFit->tauZero = oneExpFit->tauZero;
-        twoExpFit->yZero = oneExpFit->yZero;
+        twoExpFit->yZeroTwo = oneExpFit->yZero;
+
+        twoExpFit->tauOne = oneExpFit->tauZero;
+        //twoExpFit->aOne = oneExpFit->yZero;
+        twoExpFit->yZero = 1.7; //(twoExpFit->yZeroTwo + twoExpFit->yZeroOne)/2;
     }
+    //
+    double findSectorTau21(){
+        double sectorFirst = 0;
+        double sectorSecond = last->time;
+        double gap = sectorSecond - sectorFirst;
+        for(;countGoodness(sectorFirst + 0.5 * gap, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero) > countGoodness(sectorSecond + 0.5 * gap, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero);){
+            sectorFirst = sectorSecond;
+            sectorSecond = sectorFirst + gap;
+        }
+        for(; sectorSecond - sectorFirst > accuracy  ;){
+            if (countGoodness(sectorFirst + 0.5 * gap, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero) < countGoodness(sectorSecond + 0.5 * gap, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero)){
+                gap /= 2;
+                sectorSecond = sectorFirst + gap;
+            }
+            else{
+                gap /= 2;
+                sectorFirst = sectorSecond;
+                sectorSecond = sectorFirst + gap;
+            }
+        }
+        return ((sectorSecond + sectorFirst)/2);
+    }
+    //
     double findSectorTau22(){
         double sectorFirst = 0;
         double sectorSecond = last->time;
         double gap = sectorSecond - sectorFirst;
         for(;countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorFirst + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero) > countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorSecond + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero);){
-            //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY) << endl;
             sectorFirst = sectorSecond;
             sectorSecond = sectorFirst + gap;
         }
-        //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity) << endl;
         for(; sectorSecond - sectorFirst > accuracy  ;){
             if (countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorFirst + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero) < countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorSecond + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero)){
                 gap /= 2;
@@ -288,9 +313,77 @@ struct linkedList{
         }
         return ((sectorSecond + sectorFirst)/2);
     }
+    //
+    double findSectorIntensity21(){
+        double sectorFirst = 0;
+        double sectorSecond = first->intensity;
+        double gap = sectorSecond - sectorFirst;
+        for(; sectorSecond - sectorFirst > accuracy  ;){
+            if (countGoodness(twoExpFit->tauZero, sectorFirst + 0.5 * gap, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero) < countGoodness(twoExpFit->tauZero, sectorSecond + 0.5 * gap, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero))
+            {
+                gap /= 2;
+                sectorSecond = sectorFirst + gap;
+            }
+            else{
+                gap /= 2;
+                sectorFirst = sectorSecond;
+                sectorSecond = sectorFirst + gap;
+            }
+        }
+        return ((sectorSecond + sectorFirst)/2);
+    }
+    //
+    double findSectorIntensity22(){
+        double sectorFirst = 0;
+        double sectorSecond = first->intensity;
+        double gap = sectorSecond - sectorFirst;
+        for(; sectorSecond - sectorFirst > accuracy  ;){
+            if (countGoodness(twoExpFit->tauZero, twoExpFit->aZero, twoExpFit->tauOne, sectorFirst + 0.5 * gap , twoExpFit->yZero) < countGoodness(twoExpFit->tauZero, twoExpFit->aZero, twoExpFit->tauOne, sectorSecond + 0.5 * gap, twoExpFit->yZero))
+            {
+                gap /= 2;
+                sectorSecond = sectorFirst + gap;
+            }
+            else{
+                gap /= 2;
+                sectorFirst = sectorSecond;
+                sectorSecond = sectorFirst + gap;
+            }
+        }
+        return ((sectorSecond + sectorFirst)/2);
+    }
+
+    double findSectorZeroY2(){
+        double gap = twoExpFit->yZeroTwo - twoExpFit->yZeroOne;
+        if ( twoExpFit->yZeroTwo - twoExpFit->yZeroOne > accuracy ){
+            if (countGoodness( twoExpFit->tauZero, twoExpFit->aZero,  twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZeroOne + 0.25 * gap) < countGoodness(twoExpFit->tauZero, twoExpFit->aZero,  twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZeroOne + 0.75 * gap))
+                {
+                    twoExpFit->yZeroTwo = twoExpFit->yZeroOne + gap/2;
+                }
+            else
+                {
+                    twoExpFit->yZeroOne = twoExpFit->yZeroOne + gap/2;
+                }
+        }
+        cout << " Tau0 - " << twoExpFit->tauZero << " A0 - " << twoExpFit->aZero << " Tau1 - " << twoExpFit->tauOne << " A1 - " << twoExpFit->aOne << " Y1 - " << twoExpFit->yZero << " Goodness - " << (countGoodness(twoExpFit->tauZero, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero) / (dataPointCount-5)) << endl;
+        return ((twoExpFit->yZeroTwo + twoExpFit->yZeroOne)/2);
+    }
+    //
     void findTwoFittingExp(){
         firstExpFit();
+        /*
         twoExpFit->tauOne = findSectorTau22();
+        twoExpFit->aOne = findSectorIntensity22();
+        twoExpFit->tauZero = findSectorTau21();
+        twoExpFit->aZero = findSectorIntensity21();
+        */
+        for(int i = 0; i < 250; i++){
+            if ( twoExpFit->yZeroTwo - twoExpFit->yZeroOne <= accuracy ) break;
+                twoExpFit->tauZero = findSectorTau21();
+                twoExpFit->aZero = findSectorIntensity21();
+                twoExpFit->tauOne = findSectorTau22();
+                twoExpFit->aOne = findSectorIntensity22();
+                //twoExpFit->yZero = findSectorZeroY2();
+        }
     }
 };
 
@@ -311,6 +404,7 @@ int main()
         - Change time scale so the time starts with 0 [4]
     Data can be analyzed
         - Fitting Exp to data [5]
+        - Fitting 2 exponents to data [10]
     Data can be written to file
         - Exp fitted to data [6] from selected folder [8]
         - Difference from Exp and read data [7] from selected folder [9]
@@ -396,7 +490,7 @@ int main()
         case 10 :
             {
                 testList->findTwoFittingExp();
-                cout << testList->twoExpFit->tauOne << endl;
+                cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
                 //testOneExp->setupData(testList);
                 //cout << "Exponents fitted to graph - " << testOneExp->aZero << endl;
                 break;
