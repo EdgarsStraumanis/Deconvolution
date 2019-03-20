@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.1.5
+// V1.1.6
 
 using namespace std;
 
@@ -259,6 +259,7 @@ struct linkedList{
         }
         return holderGood;
     }
+    /*
     void firstExpFit(){
         findOneFittinExp();
         twoExpFit->aZero = oneExpFit->aZero;
@@ -267,7 +268,7 @@ struct linkedList{
 
         twoExpFit->tauOne = oneExpFit->tauZero;
         //twoExpFit->aOne = oneExpFit->yZero;
-        twoExpFit->yZero = 1.7; //(twoExpFit->yZeroTwo + twoExpFit->yZeroOne)/2;
+        twoExpFit->yZero = 0; //(twoExpFit->yZeroTwo + twoExpFit->yZeroOne)/2;
     }
     //
     double findSectorTau21(){
@@ -370,20 +371,99 @@ struct linkedList{
     //
     void findTwoFittingExp(){
         firstExpFit();
-        /*
-        twoExpFit->tauOne = findSectorTau22();
-        twoExpFit->aOne = findSectorIntensity22();
-        twoExpFit->tauZero = findSectorTau21();
-        twoExpFit->aZero = findSectorIntensity21();
-        */
-        for(int i = 0; i < 250; i++){
+
+        //twoExpFit->tauOne = findSectorTau22();
+        //twoExpFit->aOne = findSectorIntensity22();
+        //twoExpFit->tauZero = findSectorTau21();
+        //twoExpFit->aZero = findSectorIntensity21();
+
+        for(int i = 0; i < 500; i++){
             if ( twoExpFit->yZeroTwo - twoExpFit->yZeroOne <= accuracy ) break;
                 twoExpFit->tauZero = findSectorTau21();
                 twoExpFit->aZero = findSectorIntensity21();
                 twoExpFit->tauOne = findSectorTau22();
                 twoExpFit->aOne = findSectorIntensity22();
                 //twoExpFit->yZero = findSectorZeroY2();
+                cout << " Tau0 - " << twoExpFit->tauZero << " A0 - " << twoExpFit->aZero << " Tau1 - " << twoExpFit->tauOne << " A1 - " << twoExpFit->aOne << " Y1 - " << twoExpFit->yZero << " Goodness - " << (countGoodness(twoExpFit->tauZero, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero) / (dataPointCount-5)) << endl;
         }
+    }
+    */
+    void findTwoFittingExp(){
+
+
+
+        double best[5] = {0,0,0,0,0};
+        int segments;
+        double bestGoodness = -1;
+        double rangeA0Start = 0;
+        double rangeA0End = first->intensity*2;
+        double rangeA1Start = 0;
+        double rangeA1End = first->intensity*2;
+        double rangeTau0Start = 0;
+        double rangeTau0End = 0.05*2;
+        double rangeTau1Start = 0;
+        double rangeTau1End = 0.05*2;
+        double rangeY0Start = 0;
+        double rangeY0End = first->intensity;
+        double gapA0, gapA1, gapTau0, gapTau1, gapY0;
+        for(int i = 0;i<3;i++){
+        cout << "Iteration - " << i << endl;
+        segments = 3;
+        for(;segments<=8;segments++){
+            rangeA0Start = 0;
+            rangeA0End = first->intensity*2;
+            rangeA1Start = 0;
+            rangeA1End = first->intensity*2;
+            rangeTau0Start = 0;
+            rangeTau0End = 0.05*2;
+            rangeTau1Start = 0;
+            rangeTau1End = 0.05*2;
+            rangeY0Start = 0;
+            rangeY0End = first->intensity;
+            for(int ii=0;ii<3;ii++)
+            for(int iterations=0; iterations < 50/segments; iterations++){
+                gapA0 = (rangeA0End - rangeA0Start) / segments;
+                gapTau0 = (rangeTau0End - rangeTau0Start) / segments;
+                gapA1 = (rangeA1End - rangeA1Start) / segments;
+                gapTau1 = (rangeTau1End - rangeTau1Start) / segments;
+                gapY0 = (rangeY0End - rangeY0Start) / segments;
+                for(int segmentA0 = 1; segmentA0 <= segments; segmentA0++){
+                    for(int segmentTau0 = 1; segmentTau0 <= segments; segmentTau0++){
+                        for(int segmentA1 = 1; segmentA1 <= segments; segmentA1++){
+                            for(int segmentTau1 = 1; segmentTau1 <= segments; segmentTau1++){
+                                for(int segmentY0 = 1; segmentY0 <= segments; segmentY0++){
+                                    if (rangeA0Start+gapA0*segmentA0 < rangeA1Start+gapA1*segmentA1) continue;
+
+                                    double currentGoodness = countGoodness(rangeTau0Start+gapTau0*segmentTau0, rangeA0Start+gapA0*segmentA0,rangeTau1Start+gapTau1*segmentTau1,rangeA1Start+gapA1*segmentA1,rangeY0Start+gapY0*(segmentY0-1));
+                                    //cout << currentGoodness << endl;
+                                    if ((currentGoodness < bestGoodness) || (bestGoodness == -1)){
+                                            bestGoodness = currentGoodness;
+                                            best[0] = rangeTau0Start+gapTau0*segmentTau0;
+                                            best[1] = rangeA0Start+gapA0*segmentA0;
+                                            best[2] = rangeTau1Start+gapTau1*segmentTau1;
+                                            best[3] = rangeA1Start+gapA1*segmentA1;
+                                            best[4] = rangeY0Start+gapY0*(segmentY0-1);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                rangeA0Start = best[1]-gapA0;
+                rangeA0End = best[1]+gapA0;
+                rangeA1Start = best[3]-gapA1;
+                rangeA1End =  best[3]+gapA1;
+                rangeTau0Start = best[0]-gapTau0;
+                rangeTau0End = best[0]+gapTau1;
+                rangeTau1Start = best[2]-gapTau1;
+                rangeTau1End = best[2]+gapTau1;
+                rangeY0Start = 0;
+                rangeY0End = best[4]+gapY0;
+                //cout << "Finding - " << segments << " " << best[0] << " " << best[1] << " " << best[2] << " " << best[3] << " " << best[4] << " " << bestGoodness/dataPointCount << endl;
+            }
+        cout << "Segments - " << segments << " " << best[0] << " " << best[1] << " " << best[2] << " " << best[3] << " " << best[4] << " " << bestGoodness << endl;
+        }
+    }
     }
 };
 
@@ -490,7 +570,7 @@ int main()
         case 10 :
             {
                 testList->findTwoFittingExp();
-                cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
+                //cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
                 //testOneExp->setupData(testList);
                 //cout << "Exponents fitted to graph - " << testOneExp->aZero << endl;
                 break;
