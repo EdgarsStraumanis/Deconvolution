@@ -389,9 +389,6 @@ struct linkedList{
     }
     */
     void findTwoFittingExp(){
-
-
-
         double best[5] = {0,0,0,0,0};
         int segments;
         double bestGoodness = -1;
@@ -400,37 +397,37 @@ struct linkedList{
         double rangeA1Start = 0;
         double rangeA1End = first->intensity*2;
         double rangeTau0Start = 0;
-        double rangeTau0End = 0.05*2;
+        double rangeTau0End = 1;
         double rangeTau1Start = 0;
-        double rangeTau1End = 0.05*2;
+        double rangeTau1End = 1;
         double rangeY0Start = 0;
         double rangeY0End = first->intensity;
         double gapA0, gapA1, gapTau0, gapTau1, gapY0;
-        for(int i = 0;i<3;i++){
+        for(int i = 0;i<15;i++){
         cout << "Iteration - " << i << endl;
         segments = 3;
-        for(;segments<=8;segments++){
+        for(;segments<=4;segments++){
             rangeA0Start = 0;
             rangeA0End = first->intensity*2;
             rangeA1Start = 0;
             rangeA1End = first->intensity*2;
             rangeTau0Start = 0;
-            rangeTau0End = 0.05*2;
+            rangeTau0End = 1;
             rangeTau1Start = 0;
-            rangeTau1End = 0.05*2;
+            rangeTau1End = 1;
             rangeY0Start = 0;
             rangeY0End = first->intensity;
-            for(int ii=0;ii<3;ii++)
-            for(int iterations=0; iterations < 50/segments; iterations++){
+            for(int iterations=0; iterations < 100/segments; iterations++){
                 gapA0 = (rangeA0End - rangeA0Start) / segments;
                 gapTau0 = (rangeTau0End - rangeTau0Start) / segments;
                 gapA1 = (rangeA1End - rangeA1Start) / segments;
                 gapTau1 = (rangeTau1End - rangeTau1Start) / segments;
                 gapY0 = (rangeY0End - rangeY0Start) / segments;
-                for(int segmentA0 = 1; segmentA0 <= segments; segmentA0++){
-                    for(int segmentTau0 = 1; segmentTau0 <= segments; segmentTau0++){
-                        for(int segmentA1 = 1; segmentA1 <= segments; segmentA1++){
-                            for(int segmentTau1 = 1; segmentTau1 <= segments; segmentTau1++){
+                for(int segmentTau0 = 1; segmentTau0 <= segments; segmentTau0++){
+                    for(int segmentTau1 = 1; segmentTau1 <= segments; segmentTau1++){
+                        //if (rangeTau1Start+gapTau1*(segmentTau1-100) >= rangeTau0Start+gapTau0*segmentTau0) break;
+                        for(int segmentA0 = 1; segmentA0 <= segments; segmentA0++){
+                            for(int segmentA1 = 1; segmentA1 <= segments; segmentA1++){
                                 for(int segmentY0 = 1; segmentY0 <= segments; segmentY0++){
                                     if (rangeA0Start+gapA0*segmentA0 < rangeA1Start+gapA1*segmentA1) continue;
 
@@ -454,16 +451,132 @@ struct linkedList{
                 rangeA1Start = best[3]-gapA1;
                 rangeA1End =  best[3]+gapA1;
                 rangeTau0Start = best[0]-gapTau0;
-                rangeTau0End = best[0]+gapTau1;
+                rangeTau0End = best[0]+gapTau0;
                 rangeTau1Start = best[2]-gapTau1;
                 rangeTau1End = best[2]+gapTau1;
                 rangeY0Start = 0;
                 rangeY0End = best[4]+gapY0;
-                //cout << "Finding - " << segments << " " << best[0] << " " << best[1] << " " << best[2] << " " << best[3] << " " << best[4] << " " << bestGoodness/dataPointCount << endl;
+        }
+        cout << "Segments - " << segments << " " << best[0] << " " << best[1] << " " << best[2] << " " << best[3] << " " << best[4] << " " << bestGoodness << endl;
+        }
+    }
+    for(int i = 0;i<2;i++){
+        cout << "Iteration - " << i << endl;
+        segments = 3;
+        for(;segments<=20;segments++){
+            rangeA0Start = 0;
+            rangeA0End = best[0]*2;
+            rangeTau0Start = 0;
+            rangeTau0End = best[1]*2;
+            rangeY0Start = 0;
+            rangeY0End = best[4]*2;
+            for(int iterations=0; iterations < 100/segments; iterations++){
+            //cout << rangeA0Start << " " << rangeA0End << " " << rangeTau0Start << " " << rangeTau0End << " " << rangeY0Start << " " << rangeY0End << " " << bestGoodness << endl;
+                gapA0 = (rangeA0End - rangeA0Start) / segments;
+                gapTau0 = (rangeTau0End - rangeTau0Start) / segments;
+                gapY0 = (rangeY0End - rangeY0Start) / segments;
+                for(int segmentTau0 = 1; segmentTau0 <= segments; segmentTau0++){
+                    for(int segmentA0 = 1; segmentA0 <= segments; segmentA0++){
+                        for(int segmentY0 = 1; segmentY0 <= segments; segmentY0++){
+                            double currentGoodness = countGoodness(rangeTau0Start+gapTau0*segmentTau0, rangeA0Start+gapA0*segmentA0,best[2],best[3],rangeY0Start+gapY0*(segmentY0-1));
+                            //cout << currentGoodness << endl;
+                            if ((currentGoodness < bestGoodness) || (bestGoodness == -1)){
+                                bestGoodness = currentGoodness;
+                                best[0] = rangeTau0Start+gapTau0*segmentTau0;
+                                best[1] = rangeA0Start+gapA0*segmentA0;
+                                best[4] = rangeY0Start+gapY0*(segmentY0-1);
+                            }
+                        }
+                    }
+                }
+            rangeA0Start = best[1]-gapA0;
+            rangeA0End = best[1]+gapA0;
+            rangeTau0Start = best[0]-gapTau0;
+            rangeTau0End = best[0]+gapTau0;
+            rangeY0Start = 0;
+            rangeY0End = best[4]+gapY0;
             }
         cout << "Segments - " << segments << " " << best[0] << " " << best[1] << " " << best[2] << " " << best[3] << " " << best[4] << " " << bestGoodness << endl;
         }
     }
+    /*
+    for(int i = 0;i<4;i++){
+        cout << "Iteration - " << i << endl;
+        segments = 3;
+        for(;segments<=20;segments++){
+            rangeA1Start = 0;
+            rangeA1End = best[2]*2;
+            rangeTau1Start = 0;
+            rangeTau1End = best[3]*2;
+            rangeY0Start = 0;
+            rangeY0End = best[4]*2;
+            for(int iterations=0; iterations < 100/segments; iterations++){
+                gapA1 = (rangeA1End - rangeA1Start) / segments;
+                gapTau1 = (rangeTau1End - rangeTau1Start) / segments;
+                gapY0 = (rangeY0End - rangeY0Start) / segments;
+                for(int segmentTau1 = 1; segmentTau1 <= segments; segmentTau1++){
+                    for(int segmentA1 = 1; segmentA1 <= segments; segmentA1++){
+                        for(int segmentY0 = 1; segmentY0 <= segments; segmentY0++){
+                            double currentGoodness = countGoodness(best[0], best[1], rangeTau1Start+gapTau1*segmentTau1, rangeA1Start+gapA1*segmentA1,rangeY0Start+gapY0*(segmentY0-1));
+                            cout << currentGoodness << endl;
+                            if ((currentGoodness < bestGoodness) || (bestGoodness == -1)){
+                                bestGoodness = currentGoodness;
+                                best[2] = rangeTau1Start+gapTau1*segmentTau1;
+                                best[3] = rangeA1Start+gapA1*segmentA1;
+                                best[4] = rangeY0Start+gapY0*(segmentY0-1);
+                            }
+                        }
+                    }
+                }
+                rangeA1Start = best[3]-gapA1;
+                rangeA1End =  best[3]+gapA1;
+                rangeTau1Start = best[2]-gapTau1;
+                rangeTau1End = best[2]+gapTau1;
+                rangeY0Start = 0;
+                rangeY0End = best[4]+gapY0;
+            }
+        cout << "Segments - " << segments << " " << best[0] << " " << best[1] << " " << best[2] << " " << best[3] << " " << best[4] << " " << bestGoodness << endl;
+        }
+    }
+    /*
+    for(int i = 0;i<4;i++){
+        cout << "Iteration - " << i << endl;
+        segments = 3;
+        for(;segments<=20;segments++){
+            rangeA0Start = 0;
+            rangeA0End = best[0]*2;
+            rangeTau0Start = 0;
+            rangeTau0End = best[1]*2;
+            rangeY0Start = 0;
+            rangeY0End = best[4]*2;
+            for(int iterations=0; iterations < 100/segments; iterations++){
+                gapA0 = (rangeA0End - rangeA0Start) / segments;
+                gapTau0 = (rangeTau0End - rangeTau0Start) / segments;
+                gapY0 = (rangeY0End - rangeY0Start) / segments;
+                for(int segmentTau0 = 1; segmentTau0 <= segments; segmentTau0++){
+                    for(int segmentA0 = 1; segmentA0 <= segments; segmentA0++){
+                        for(int segmentY0 = 1; segmentY0 <= segments; segmentY0++){
+                            double currentGoodness = countGoodness(rangeTau0Start+gapTau0*segmentTau0, rangeA0Start+gapA0*segmentA0,best[2],best[3],rangeY0Start+gapY0*(segmentY0-1));
+                            if ((currentGoodness < bestGoodness) || (bestGoodness == -1)){
+                                bestGoodness = currentGoodness;
+                                best[0] = rangeTau0Start+gapTau0*segmentTau0;
+                                best[1] = rangeA0Start+gapA0*segmentA0;
+                                best[4] = rangeY0Start+gapY0*(segmentY0-1);
+                            }
+                        }
+                    }
+                }
+            }
+        cout << "Segments - " << segments << " " << best[0] << " " << best[1] << " " << best[2] << " " << best[3] << " " << best[4] << " " << bestGoodness << endl;
+        }
+        rangeA0Start = best[1]-gapA0;
+        rangeA0End = best[1]+gapA0;
+        rangeTau0Start = best[0]-gapTau0;
+        rangeTau0End = best[0]+gapTau0;
+        rangeY0Start = 0;
+        rangeY0End = best[4]+gapY0;
+    }
+    */
     }
 };
 
