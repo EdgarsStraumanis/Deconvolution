@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.1.7
+// V1.1.8
 
 using namespace std;
 
@@ -22,11 +22,15 @@ struct twoBeams{
     Point that is last time point which will have coordinates (Xk,Yk) and angle Beta
     */
     double xZero = 0;
-    double yZero;
-    double xK;
-    double yK;
+    double yZero = 0;
+    double xK = 0;
+    double yK = 0;
     double alpha = 0;
     double beta = 0;
+
+    void print(){
+        cout << "xZero=" << xZero << " yZero=" << yZero << " xK=" << xK << " yK=" << yK << " alpha=" << alpha << " beta=" << beta << endl;
+    }
 };
 
 struct twoExp{
@@ -73,6 +77,9 @@ struct dataPair{
 struct linkedList{
     dataPair* first = 0;
     dataPair* last = 0;
+    dataPair* laserFirst = 0;
+    dataPair* laserLast = 0;
+    dataPair* laserPointCount = 0;
     int dataPointCount = 0;
     oneExp* oneExpFit = new oneExp;
     twoExp* twoExpFit = new twoExp;
@@ -594,6 +601,7 @@ struct linkedList{
         findTwoFittingExpZero();
     }
 
+    /*
     double sumFrontX(int pointCount){
         double sum = 0;
         dataPair* pointerPair = first;
@@ -634,10 +642,31 @@ struct linkedList{
         return sum;
     }
 
-    double countStart(){
-        int pointCount = 5;
-        //double base = (pointCount*sumFrontXY(pointCount)-sumFrontX(pointCount)*sumFrontY(pointCount))/(pointCount*sumFrontXX(pointCount)-sumFrontX(pointCount)*sumFrontX(pointCount));
-        return (sumFrontXX(pointCount)*sumFrontY(pointCount)-sumFrontX(pointCount)*sumFrontXY(pointCount))/(pointCount*sumFrontXX(pointCount)-sumFrontX(pointCount)*sumFrontX(pointCount));
+    double lineSegmentLeastSquaresStart(int lastPoint, double yAtZero, double coefficientAtX){
+        double sum = 0;
+        dataPair* pointerPair = first;
+        for(int i = 0; (pointerPair != 0 && i < dataPointCount); pointerPair = pointerPair->next){
+            if ((coefficientAtX*pointerPair->time+yAtZero) < pointerPair->intensity)
+                sum += pow(pointerPair->intensity-(coefficientAtX*pointerPair->time+yAtZero), 2);
+            else
+                sum += pow((coefficientAtX*pointerPair->time+yAtZero)-pointerPair->intensity, 2);
+            //cout << pointerPair->intensity << " " << coefficientAtX*pointerPair->time+yAtZero << endl;
+            i++;
+        }
+        return sum/dataPointCount;
+    }
+
+    void countStart(){
+        double previous = 0;
+        double current = 0;
+        for(int pointCount = 5; pointCount < dataPointCount; pointCount++){
+
+            double base = (pointCount*sumFrontXY(pointCount)-sumFrontX(pointCount)*sumFrontY(pointCount))/(pointCount*sumFrontXX(pointCount)-sumFrontX(pointCount)*sumFrontX(pointCount));
+            twoExpFit->beamCalculation->yZero = (sumFrontXX(pointCount)*sumFrontY(pointCount)-sumFrontX(pointCount)*sumFrontXY(pointCount))/(pointCount*sumFrontXX(pointCount)-sumFrontX(pointCount)*sumFrontX(pointCount));
+            current = lineSegmentLeastSquaresStart(pointCount, twoExpFit->beamCalculation->yZero, base);
+            cout << pointCount << " yZero is " << twoExpFit->beamCalculation->yZero << " base is" << base << " squares is " << current << " difference " << current - previous << endl;
+            previous = current;
+        }
     }
 
     double sumBackX(int pointCount){
@@ -687,19 +716,114 @@ struct linkedList{
         //cout << maximum*accuracy << endl;
         for(int i = pointCount; i < dataPointCount ;i++){
             base = (pointCount*sumBackXY(pointCount)-sumBackX(pointCount)*sumBackY(pointCount))/(pointCount*sumBackXX(pointCount)-sumBackX(pointCount)*sumBackX(pointCount));
-            //cout << base << endl;
+            //cout << dataPointCount-pointCount << " " << base << endl;
             if (base<maximum*accuracy&&base>-maximum*accuracy) lastPoint = i;
             pointCount++;
         }
         base = (lastPoint*sumBackXY(lastPoint)-sumBackX(lastPoint)*sumBackY(lastPoint))/(lastPoint*sumBackXX(lastPoint)-sumBackX(lastPoint)*sumBackX(lastPoint));
-        cout << lastPoint << endl;
+        //cout << lastPoint << endl;
+        dataPair* pointerPair = last;
+        for(int i = 0; (pointerPair != 0 && i < lastPoint); pointerPair = pointerPair->previous){
+            i++;
+        }
+        twoExpFit->beamCalculation->xK = pointerPair->time;
         //cout << base << endl;
         return base;//(sumBackXX(pointCount)*sumBackY(pointCount)-sumBackX(pointCount)*sumBackXY(pointCount))/(pointCount*sumBackXX(pointCount)-sumBackX(pointCount)*sumBackX(pointCount));
     }
 
     void assignBeams(){
-        twoExpFit->beamCalculation->xK = last->time;
-        twoExpFit->beamCalculation->yZero = countStart();
+        //twoExpFit->beamCalculation->xK = last->time;
+        //twoExpFit->beamCalculation->yZero = countStart();
+    }
+    */
+    void addPairInstrument(double makeTime, int makeIntensity){
+        dataPair* creatingPair = new dataPair;
+        creatingPair->time = makeTime;
+        creatingPair->intensity = makeIntensity;
+        if (laserPointCount == 0){
+            laserFirst = creatingPair;
+        }
+        else{
+            creatingPair->previous = laserLast;
+            laserLast->next = creatingPair;
+        }
+        laserPointCount++;
+        laserLast = creatingPair;
+    }
+
+    void readFileInstrumental(char fileName[255]){
+        ifstream inputFile(fileName);
+        while (true){
+                double timeFromFile;
+                int photonCountFromFile;
+                inputFile >> timeFromFile >> photonCountFromFile;
+                addPairInstrument(timeFromFile,photonCountFromFile);
+                if( inputFile.eof() ) break;
+        }
+    }
+    void printInstrumentData(){
+        dataPair* findPair = laserFirst;
+        while (findPair != 0){
+            cout << findPair->time << " " << findPair->intensity << endl;
+            findPair = findPair->next;
+        }
+    }
+
+    int findMaximumInstrumental(){
+        dataPair* findPair = laserFirst;
+        int maximum = 0;
+        while (findPair != 0){
+            if (findPair->intensity>maximum)
+                maximum = findPair->intensity;
+            findPair = findPair->next;
+        }
+        return maximum;
+    }
+
+    void clearInstrumental(){
+        int maximum = findMaximumInstrumental();
+        dataPair* middlePair = laserFirst;
+        while (middlePair != 0 && middlePair->intensity != maximum){
+            middlePair = middlePair->next;
+        }
+
+        dataPair* findPair = middlePair;
+        while (findPair != 0 && findPair->intensity > maximum*0.005){
+            findPair = findPair->next;
+        }
+
+        laserLast = findPair;
+        laserLast->next = 0;
+        findPair = findPair->next;
+        dataPair* deletePair = 0;
+        while (findPair != 0){
+            deletePair = findPair;
+            findPair = findPair->next;
+            delete deletePair;
+        }
+
+        findPair = middlePair;
+        while (findPair != 0 && findPair->intensity > maximum*0.005){
+            findPair = findPair->previous;
+        }
+
+        laserFirst = findPair;
+        laserFirst->previous = 0;
+        findPair = findPair->previous;
+        while (findPair != 0){
+            deletePair = findPair;
+            findPair = findPair->previous;
+            delete deletePair;
+        }
+    }
+
+    float countDeconvolutionGoodness(){}
+
+    void deconvoluteData(){
+        dataPair* findPair = first;
+        while (findPair != 0){
+            findPair = findPair->next;
+        }
     }
 };
 
@@ -733,6 +857,7 @@ int main()
     int command;
     linkedList* testList = new linkedList;
     char nameOfInputFile[255] = "dataTwo.txt";
+    char nameOfInputFileInstrument[255] = "InstrumentData.txt";
     char nameOfOutputFileExp[255] = "resultExp.txt";
     char nameOfOutputFileNLLS[255] = "resultNLLS.txt"; //NLLS --- non-linear least squares method
     bool caseTrue = true;
@@ -806,14 +931,20 @@ int main()
         case 10 :
             {
                 //testList->findTwoFittingExp();
-                double maximum = testList->countStart();
-                cout << maximum << " End - " << testList->countEnd(0.02, maximum) << endl;
-
+                //testList->countStart();
+                //testList->countEnd(0.08, testList->twoExpFit->beamCalculation->yZero);
+                //testList->twoExpFit->beamCalculation->print();
 
                 //cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
                 //testOneExp->setupData(testList);
                 //cout << "Exponents fitted to graph - " << testOneExp->aZero << endl;
                 break;
+            }
+        case 11 :
+            {
+                testList->readFileInstrumental(nameOfInputFileInstrument);
+                testList->clearInstrumental();
+                testList->printInstrumentData();
             }
         }
     }
