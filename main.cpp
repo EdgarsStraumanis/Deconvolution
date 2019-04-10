@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.1.8
+// V1.2.0
 
 using namespace std;
 
@@ -69,6 +69,7 @@ struct threeExp{
 struct dataPair{
     double time;
     int intensity;
+    double deconvolutionSum = 0;
     dataPair* next = 0;
     dataPair* previous = 0;
 };
@@ -780,6 +781,25 @@ struct linkedList{
         return maximum;
     }
 
+    void allignInstrumentalToMaterial(){
+        int maximum = findMaximumInstrumental();
+        dataPair* centeringPair = laserFirst;
+        while (centeringPair != 0 && centeringPair->intensity != maximum){
+            centeringPair = centeringPair->next;
+        }
+        double centerTime = centeringPair->time;
+        centeringPair = laserFirst;
+        while (centeringPair != 0){
+            centeringPair->time -= centerTime;
+            centeringPair = centeringPair->next;
+        }
+    }
+
+    void expandInstrumentalToMaterial(){
+
+
+    }
+
     void clearInstrumental(){
         int maximum = findMaximumInstrumental();
         dataPair* middlePair = laserFirst;
@@ -820,10 +840,76 @@ struct linkedList{
     float countDeconvolutionGoodness(){}
 
     void deconvoluteData(){
+        double bestGoodness = -1;
+        double bestCombination[4] = {0,0,0,0};
+        double coefficientStart = 0;
+        double coefficientEnd = first->intensity/findMaximumInstrumental();
+        double tauCoefficientStart = 0;
+        double tauCoefficientEnd = 1;
+        double noiseStart = 0;
+        double noiseEnd = first->intensity;
+        for(int i=0; i<20; i++){
+            for(int sectorCoefficient = 1; sectorCoefficient<=10; sectorCoefficient++){
+                for(int sectorTau = 1; sectorTau<=10; sectorTau++){
+                    deconvoluteSumCounting(coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2,tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2,24.7,-0.015);
+                    if (deconvolutionGoodness()<=bestGoodness||bestGoodness==-1){
+                        bestGoodness=deconvolutionGoodness();
+                        bestCombination[0] = coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/2;
+                        bestCombination[1] = coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2;
+                        bestCombination[2] = tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/2;
+                        bestCombination[3] = tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2;
+                    }
+                    //cout << coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/2 << " " << coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2 << " " << tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/2 << " " << tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2 << endl;
+                    cout << deconvolutionGoodness() << endl;
+                }
+            }
+            coefficientStart = bestCombination[0];
+            coefficientEnd = bestCombination[1];
+            tauCoefficientStart = bestCombination[2];
+            tauCoefficientEnd = bestCombination[3];
+        }
+        cout << (bestCombination[0]+bestCombination[1])/2 << " " << (bestCombination[2]+bestCombination[3])/2 << endl;
+    }
+
+
+    void deconvoluteSumCounting(double coefficient, double tauCoefficient, double noise, double timeOffset){
+        dataPair* materialPair = first;
+        dataPair* instrumentPair = laserFirst;
+        while (materialPair != 0){
+            materialPair->deconvolutionSum = 0;
+            materialPair = materialPair->next;
+        }
+        materialPair = first;
+        while (materialPair != 0){
+            instrumentPair = laserFirst;
+            while (instrumentPair!=0){
+                if (materialPair->time>=instrumentPair->time){
+                    materialPair->deconvolutionSum += coefficient*instrumentPair->intensity*exp(-((materialPair->time-instrumentPair->time)/tauCoefficient));
+                }
+                instrumentPair = instrumentPair->next;
+            }
+            materialPair->deconvolutionSum += noise;
+            materialPair = materialPair->next;
+        }
+    }
+
+    void printDeconvolution(){
         dataPair* findPair = first;
-        while (findPair != 0){
+        while(findPair !=0){
+            cout << findPair->time << " " << findPair->deconvolutionSum << endl;
             findPair = findPair->next;
         }
+    }
+
+    float deconvolutionGoodness(){
+        double holderGood = 0;
+        dataPair* pointerPair = first;
+        while (pointerPair != 0){
+            holderGood += pow( pointerPair->deconvolutionSum - pointerPair->intensity, 2  );
+            // cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
+            pointerPair = pointerPair->next;
+        }
+        return holderGood/dataPointCount;
     }
 };
 
@@ -944,7 +1030,9 @@ int main()
             {
                 testList->readFileInstrumental(nameOfInputFileInstrument);
                 testList->clearInstrumental();
-                testList->printInstrumentData();
+                testList->allignInstrumentalToMaterial();
+                //testList->printInstrumentData();
+                testList->deconvoluteData();
             }
         }
     }
