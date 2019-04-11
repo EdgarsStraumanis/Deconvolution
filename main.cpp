@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.2.0
+// V1.2.1
 
 using namespace std;
 
@@ -19,7 +19,7 @@ struct twoBeams{
     /*
     Point that is located time = 0 which will have coordinates (X0,Y0) and angle Alpha
 
-    Point that is last time point which will have coordinates (Xk,Yk) and angle Beta
+    Point that is materialLast time point which will have coordinates (Xk,Yk) and angle Beta
     */
     double xZero = 0;
     double yZero = 0;
@@ -66,99 +66,99 @@ struct threeExp{
 };
 
 // node to save data which knows next and previous nodes connected in the linked list to travel through nodes
-struct dataPair{
+struct dataNode{
     double time;
     int intensity;
     double deconvolutionSum = 0;
-    dataPair* next = 0;
-    dataPair* previous = 0;
+    dataNode* next = 0;
+    dataNode* previous = 0;
 };
 
 // allows to hold a list of data-points - time, intensity; Contains a various amount of functions to work with the data
 struct linkedList{
-    dataPair* first = 0;
-    dataPair* last = 0;
-    dataPair* laserFirst = 0;
-    dataPair* laserLast = 0;
-    dataPair* laserPointCount = 0;
+    dataNode* materialFirst = 0;
+    dataNode* materialLast = 0;
+    dataNode* instrumentalFirst = 0;
+    dataNode* instrumentLast = 0;
+    dataNode* instrumentPointCount = 0;
     int dataPointCount = 0;
     oneExp* oneExpFit = new oneExp;
     twoExp* twoExpFit = new twoExp;
     threeExp* threeExpFit = new threeExp;
     double accuracy = 0.0000001;
 
-    // Allows to add data-points to list as last element
-    void addPair(double makeTime, int makeIntensity){
-        dataPair* creatingPair = new dataPair;
-        creatingPair->time = makeTime;
-        creatingPair->intensity = makeIntensity;
+    // Allows to add data-points to list as materialLast element
+    void addNode(double makeTime, int makeIntensity){
+        dataNode* creatingNode = new dataNode;
+        creatingNode->time = makeTime;
+        creatingNode->intensity = makeIntensity;
         if (dataPointCount == 0){
-            first = creatingPair;
+            materialFirst = creatingNode;
         }
         else{
-            creatingPair->previous = last;
-            last->next = creatingPair;
+            creatingNode->previous = materialLast;
+            materialLast->next = creatingNode;
         }
         dataPointCount++;
-        last = creatingPair;
+        materialLast = creatingNode;
     }
 
-    // Clears read data-pairs from first to last
+    // Clears read data-Nodes from materialFirst to materialLast
     void clearList(){
-        dataPair* deletePair = first;
-        while (deletePair != 0){
-            dataPair* saveNext = deletePair->next;
-            first = saveNext;
-            delete deletePair;
-            deletePair = saveNext;
+        dataNode* deleteNode = materialFirst;
+        while (deleteNode != 0){
+            dataNode* saveNext = deleteNode->next;
+            materialFirst = saveNext;
+            delete deleteNode;
+            deleteNode = saveNext;
             dataPointCount--;
         }
-        first = 0;
-        last = 0;
+        materialFirst = 0;
+        materialLast = 0;
     }
 
     // Find time-point with maximum intensity
     double maxPeak(){
         if (dataPointCount < 1) return -1;
-        dataPair* findPair = first;
-        dataPair* maxPair = findPair;
-        while (findPair != 0){
-            if (findPair->intensity > maxPair->intensity) maxPair = findPair;
-            findPair = findPair->next;
+        dataNode* findNode = materialFirst;
+        dataNode* maxNode = findNode;
+        while (findNode != 0){
+            if (findNode->intensity > maxNode->intensity) maxNode = findNode;
+            findNode = findNode->next;
         }
-        return maxPair->time;
+        return maxNode->time;
     }
 
-    //Removes all data-pairs from beginning till specified time but not including time that was written
+    //Removes all data-Nodes from beginning till specified time but not including time that was written
     void clearTillTime(double timeTill){
-        dataPair* deletePair = first;
-        while (deletePair !=0 && deletePair->time < timeTill){
-            dataPair* saveNext = deletePair->next;
-            first = saveNext;
-            delete deletePair;
-            deletePair = saveNext;
+        dataNode* deleteNode = materialFirst;
+        while (deleteNode !=0 && deleteNode->time < timeTill){
+            dataNode* saveNext = deleteNode->next;
+            materialFirst = saveNext;
+            delete deleteNode;
+            deleteNode = saveNext;
             dataPointCount--;
         }
     }
 
-    // Deducts all time values by first data-pair's time to move time to zero
+    // Deducts all time values by materialFirst data-Node's time to move time to zero
     void moveTimeZero(){
         if (dataPointCount < 1) return;
-        dataPair* pointerPair = last;
-        while (pointerPair != 0){
-            pointerPair->time -= first->time;
-            pointerPair = pointerPair->previous;
+        dataNode* pointerNode = materialLast;
+        while (pointerNode != 0){
+            pointerNode->time -= materialFirst->time;
+            pointerNode = pointerNode->previous;
         }
     }
 
     // Counts how good is the fitting of specific exponent to data that was input
     double countGoodness(double tau, double zeroA, double zeroY){
         double holderGood = 0;
-        dataPair* pointerPair = first;
-        while (pointerPair != 0){
-            holderGood += pow( zeroA * exp(-(pointerPair->time / tau)) - pointerPair->intensity + zeroY, 2  );
-            // cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
-            pointerPair = pointerPair->next;
+        dataNode* pointerNode = materialFirst;
+        while (pointerNode != 0){
+            holderGood += pow( zeroA * exp(-(pointerNode->time / tau)) - pointerNode->intensity + zeroY, 2  );
+            // cout << pointerNode->intensity << " " << zeroA * exp(-(pointerNode->time / tau)) << endl;
+            pointerNode = pointerNode->next;
         }
         return holderGood;
     }
@@ -170,28 +170,28 @@ struct linkedList{
                 double timeFromFile;
                 int intensityFromFile;
                 inputFile >> timeFromFile >> intensityFromFile;
-                addPair(timeFromFile,intensityFromFile);
+                addNode(timeFromFile,intensityFromFile);
                 if( inputFile.eof() ) break;
         }
     }
 
-    // write to file a pair of data < time, difference between read data and fitted function at time moment>
+    // write to file a Node of data < time, difference between read data and fitted function at time moment>
     void drawGoodnessToFile1(char fileName[255]){
         ofstream outputFile(fileName);
-        dataPair* pointerPair = first;
-        while (pointerPair != 0){
-            outputFile << pointerPair->time << " " << (pointerPair->intensity - (oneExpFit->aZero * exp(-(pointerPair->time / oneExpFit->tauZero)) + oneExpFit->yZero) ) << endl;
-            pointerPair = pointerPair->next;
+        dataNode* pointerNode = materialFirst;
+        while (pointerNode != 0){
+            outputFile << pointerNode->time << " " << (pointerNode->intensity - (oneExpFit->aZero * exp(-(pointerNode->time / oneExpFit->tauZero)) + oneExpFit->yZero) ) << endl;
+            pointerNode = pointerNode->next;
         }
     }
 
-    // write to file a pair of data < time, fitted function at time moment >
+    // write to file a Node of data < time, fitted function at time moment >
     void drawExpToFile1(char fileName[255]){
         ofstream outputFile(fileName);
-        dataPair* pointerPair = first;
-        while (pointerPair != 0){
-            outputFile << pointerPair->time << " " << (oneExpFit->aZero * exp(-(pointerPair->time / oneExpFit->tauZero)) + oneExpFit->yZero) << endl;
-            pointerPair = pointerPair->next;
+        dataNode* pointerNode = materialFirst;
+        while (pointerNode != 0){
+            outputFile << pointerNode->time << " " << (oneExpFit->aZero * exp(-(pointerNode->time / oneExpFit->tauZero)) + oneExpFit->yZero) << endl;
+            pointerNode = pointerNode->next;
         }
     }
 
@@ -199,7 +199,7 @@ struct linkedList{
     // Tries to find sector for Tau for exp using golden cut method by reducing a range by halving the region whichever fits better
     double findSectorTau1(){
         double sectorFirst = 0;
-        double sectorSecond = last->time;
+        double sectorSecond = materialLast->time;
         double gap = sectorSecond - sectorFirst;
         for(;countGoodness(sectorFirst + 0.5 * gap, oneExpFit->aZero, oneExpFit->yZero) > countGoodness(sectorSecond + 0.5 * gap, oneExpFit->aZero, oneExpFit->yZero);){
             //cout << countGoodness(sectorFirst + 0.5 * gap, baseIntensity, baseZeroY) << " " << countGoodness(sectorSecond + 0.5 * gap, baseIntensity, baseZeroY) << endl;
@@ -220,10 +220,11 @@ struct linkedList{
         }
         return ((sectorSecond + sectorFirst)/2);
     }
+
     // Tries to find sector for Intensity0 for exp using golden cut method by reducing a range by halving the region whichever fits better
     double findSectorIntensity1(){
         double sectorFirst = 0;
-        double sectorSecond = first->intensity;
+        double sectorSecond = materialFirst->intensity;
         double gap = sectorSecond - sectorFirst;
         /*
         for(;countGoodness(baseTau, sectorFirst + 0.5 * gap) > countGoodness(baseTau, sectorSecond + 0.5 * gap);)
@@ -234,7 +235,7 @@ struct linkedList{
                     Sleep(1);
         }
         */
-        //cout << countGoodness(sectorFirst + 0.5 * gap, first->intensity) << " " << countGoodness(sectorSecond + 0.5 * gap, first->intensity) << endl;
+        //cout << countGoodness(sectorFirst + 0.5 * gap, materialFirst->intensity) << " " << countGoodness(sectorSecond + 0.5 * gap, materialFirst->intensity) << endl;
         for(; sectorSecond - sectorFirst > accuracy  ;){
             if (countGoodness(oneExpFit->tauZero, sectorFirst + 0.5 * gap, oneExpFit->yZero) < countGoodness(oneExpFit->tauZero, sectorSecond + 0.5 * gap, oneExpFit->yZero))
             {
@@ -249,6 +250,7 @@ struct linkedList{
         }
         return ((sectorSecond + sectorFirst)/2);
     }
+
     // Tries to find sector for Y0 for exp using golden cut method by reducing a range by halving the region whichever fits better
     double findSectorZeroY1(){
         double gap = oneExpFit->yZeroTwo - oneExpFit->yZeroOne;
@@ -266,8 +268,8 @@ struct linkedList{
     }
     // Fit one exp
     void findOneFittinExp(){
-        oneExpFit->aZero = first->intensity;
-        oneExpFit->yZeroTwo = first->intensity;
+        oneExpFit->aZero = materialFirst->intensity;
+        oneExpFit->yZeroTwo = materialFirst->intensity;
         oneExpFit->yZero = (oneExpFit->yZeroTwo + oneExpFit->yZeroOne)/2;
 
         // First phase
@@ -282,16 +284,16 @@ struct linkedList{
     // -----------Two exponent fitting--------------
     double countGoodness(double tauZero, double aZero, double tauOne, double aOne, double yZero){
         double holderGood = 0;
-        dataPair* pointerPair = first;
-        while (pointerPair != 0){
-            holderGood += pow( aZero * exp(-(pointerPair->time / tauZero)) + aOne * exp(-(pointerPair->time / tauOne)) + yZero - pointerPair->intensity , 2  );
-            // cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
-            pointerPair = pointerPair->next;
+        dataNode* pointerNode = materialFirst;
+        while (pointerNode != 0){
+            holderGood += pow( aZero * exp(-(pointerNode->time / tauZero)) + aOne * exp(-(pointerNode->time / tauOne)) + yZero - pointerNode->intensity , 2  );
+            // cout << pointerNode->intensity << " " << zeroA * exp(-(pointerNode->time / tau)) << endl;
+            pointerNode = pointerNode->next;
         }
         return holderGood;
     }
     /*
-    void firstExpFit(){
+    void materialFirstExpFit(){
         findOneFittinExp();
         twoExpFit->aZero = oneExpFit->aZero;
         twoExpFit->tauZero = oneExpFit->tauZero;
@@ -304,7 +306,7 @@ struct linkedList{
     //
     double findSectorTau21(){
         double sectorFirst = 0;
-        double sectorSecond = last->time;
+        double sectorSecond = materialLast->time;
         double gap = sectorSecond - sectorFirst;
         for(;countGoodness(sectorFirst + 0.5 * gap, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero) > countGoodness(sectorSecond + 0.5 * gap, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero);){
             sectorFirst = sectorSecond;
@@ -326,7 +328,7 @@ struct linkedList{
     //
     double findSectorTau22(){
         double sectorFirst = 0;
-        double sectorSecond = last->time;
+        double sectorSecond = materialLast->time;
         double gap = sectorSecond - sectorFirst;
         for(;countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorFirst + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero) > countGoodness(twoExpFit->tauZero, twoExpFit->aZero, sectorSecond + 0.5 * gap, twoExpFit->aOne, twoExpFit->yZero);){
             sectorFirst = sectorSecond;
@@ -348,7 +350,7 @@ struct linkedList{
     //
     double findSectorIntensity21(){
         double sectorFirst = 0;
-        double sectorSecond = first->intensity;
+        double sectorSecond = materialFirst->intensity;
         double gap = sectorSecond - sectorFirst;
         for(; sectorSecond - sectorFirst > accuracy  ;){
             if (countGoodness(twoExpFit->tauZero, sectorFirst + 0.5 * gap, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero) < countGoodness(twoExpFit->tauZero, sectorSecond + 0.5 * gap, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero))
@@ -367,7 +369,7 @@ struct linkedList{
     //
     double findSectorIntensity22(){
         double sectorFirst = 0;
-        double sectorSecond = first->intensity;
+        double sectorSecond = materialFirst->intensity;
         double gap = sectorSecond - sectorFirst;
         for(; sectorSecond - sectorFirst > accuracy  ;){
             if (countGoodness(twoExpFit->tauZero, twoExpFit->aZero, twoExpFit->tauOne, sectorFirst + 0.5 * gap , twoExpFit->yZero) < countGoodness(twoExpFit->tauZero, twoExpFit->aZero, twoExpFit->tauOne, sectorSecond + 0.5 * gap, twoExpFit->yZero))
@@ -401,7 +403,7 @@ struct linkedList{
     }
     //
     void findTwoFittingExp(){
-        firstExpFit();
+        materialFirstExpFit();
 
         //twoExpFit->tauOne = findSectorTau22();
         //twoExpFit->aOne = findSectorIntensity22();
@@ -423,30 +425,30 @@ struct linkedList{
         int segments;
         double bestGoodness = -1;
         double rangeA0Start = 0;
-        double rangeA0End = first->intensity*2;
+        double rangeA0End = materialFirst->intensity*2;
         double rangeA1Start = 0;
-        double rangeA1End = first->intensity*2;
+        double rangeA1End = materialFirst->intensity*2;
         double rangeTau0Start = 0;
         double rangeTau0End = 1;
         double rangeTau1Start = 0;
         double rangeTau1End = 1;
         double rangeY0Start = 0;
-        double rangeY0End = first->intensity;
+        double rangeY0End = materialFirst->intensity;
         double gapA0, gapA1, gapTau0, gapTau1, gapY0;
         for(int i = 0;i<4;i++){
             cout << "Iteration - " << i << endl;
             segments = 3;
             for(;segments<=4;segments++){
                 rangeA0Start = 0;
-                rangeA0End = first->intensity*2;
+                rangeA0End = materialFirst->intensity*2;
                 rangeA1Start = 0;
-                rangeA1End = first->intensity*2;
+                rangeA1End = materialFirst->intensity*2;
                 rangeTau0Start = 0;
                 rangeTau0End = 1;
                 rangeTau1Start = 0;
                 rangeTau1End = 1;
                 rangeY0Start = 0;
-                rangeY0End = first->intensity;
+                rangeY0End = materialFirst->intensity;
                 for(int iterations=0; iterations < 100/segments; iterations++){
                     gapA0 = (rangeA0End - rangeA0Start) / segments;
                     gapTau0 = (rangeTau0End - rangeTau0Start) / segments;
@@ -496,15 +498,15 @@ struct linkedList{
         int segments;
         double bestGoodness = -1;//countGoodness(twoExpFit->tauZero, twoExpFit->aZero, twoExpFit->tauOne, twoExpFit->aOne, twoExpFit->yZero);
         double rangeA0Start = 0;
-        double rangeA0End = first->intensity*2;
+        double rangeA0End = materialFirst->intensity*2;
         double rangeA1Start = 0;
-        double rangeA1End = first->intensity*2;
+        double rangeA1End = materialFirst->intensity*2;
         double rangeTau0Start = 0;
         double rangeTau0End = 1;
         double rangeTau1Start = 0;
         double rangeTau1End = 1;
         double rangeY0Start = 0;
-        double rangeY0End = first->intensity;
+        double rangeY0End = materialFirst->intensity;
         double gapA0, gapTau0, gapY0;
         for(int i = 0;i<3;i++){
             cout << "Iteration - " << i << endl;
@@ -605,9 +607,9 @@ struct linkedList{
     /*
     double sumFrontX(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = first;
-        for(int i = 0; (pointerPair != 0 && i < pointCount); pointerPair = pointerPair->next){
-            sum += pointerPair->time;
+        dataNode* pointerNode = materialFirst;
+        for(int i = 0; (pointerNode != 0 && i < pointCount); pointerNode = pointerNode->next){
+            sum += pointerNode->time;
             i++;
         }
         return sum;
@@ -615,9 +617,9 @@ struct linkedList{
 
     double sumFrontY(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = first;
-        for(int i = 0; (pointerPair != 0 && i < pointCount); pointerPair = pointerPair->next){
-            sum += pointerPair->intensity;
+        dataNode* pointerNode = materialFirst;
+        for(int i = 0; (pointerNode != 0 && i < pointCount); pointerNode = pointerNode->next){
+            sum += pointerNode->intensity;
             i++;
         }
         return sum;
@@ -625,9 +627,9 @@ struct linkedList{
 
     double sumFrontXY(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = first;
-        for(int i = 0; (pointerPair != 0 && i < pointCount); pointerPair = pointerPair->next){
-            sum += pointerPair->intensity*pointerPair->time;
+        dataNode* pointerNode = materialFirst;
+        for(int i = 0; (pointerNode != 0 && i < pointCount); pointerNode = pointerNode->next){
+            sum += pointerNode->intensity*pointerNode->time;
             i++;
         }
         return sum;
@@ -635,23 +637,23 @@ struct linkedList{
 
     double sumFrontXX(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = first;
-        for(int i = 0; (pointerPair != 0 and i < pointCount); pointerPair = pointerPair->next){
-            sum += pointerPair->time*pointerPair->time;
+        dataNode* pointerNode = materialFirst;
+        for(int i = 0; (pointerNode != 0 and i < pointCount); pointerNode = pointerNode->next){
+            sum += pointerNode->time*pointerNode->time;
             i++;
         }
         return sum;
     }
 
-    double lineSegmentLeastSquaresStart(int lastPoint, double yAtZero, double coefficientAtX){
+    double lineSegmentLeastSquaresStart(int materialLastPoint, double yAtZero, double coefficientAtX){
         double sum = 0;
-        dataPair* pointerPair = first;
-        for(int i = 0; (pointerPair != 0 && i < dataPointCount); pointerPair = pointerPair->next){
-            if ((coefficientAtX*pointerPair->time+yAtZero) < pointerPair->intensity)
-                sum += pow(pointerPair->intensity-(coefficientAtX*pointerPair->time+yAtZero), 2);
+        dataNode* pointerNode = materialFirst;
+        for(int i = 0; (pointerNode != 0 && i < dataPointCount); pointerNode = pointerNode->next){
+            if ((coefficientAtX*pointerNode->time+yAtZero) < pointerNode->intensity)
+                sum += pow(pointerNode->intensity-(coefficientAtX*pointerNode->time+yAtZero), 2);
             else
-                sum += pow((coefficientAtX*pointerPair->time+yAtZero)-pointerPair->intensity, 2);
-            //cout << pointerPair->intensity << " " << coefficientAtX*pointerPair->time+yAtZero << endl;
+                sum += pow((coefficientAtX*pointerNode->time+yAtZero)-pointerNode->intensity, 2);
+            //cout << pointerNode->intensity << " " << coefficientAtX*pointerNode->time+yAtZero << endl;
             i++;
         }
         return sum/dataPointCount;
@@ -672,9 +674,9 @@ struct linkedList{
 
     double sumBackX(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = last;
-        for(int i = 0; (pointerPair != 0 && i < pointCount); pointerPair = pointerPair->previous){
-            sum += pointerPair->time;
+        dataNode* pointerNode = materialLast;
+        for(int i = 0; (pointerNode != 0 && i < pointCount); pointerNode = pointerNode->previous){
+            sum += pointerNode->time;
             i++;
         }
         return sum;
@@ -682,9 +684,9 @@ struct linkedList{
 
     double sumBackY(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = last;
-        for(int i = 0; (pointerPair != 0 && i < pointCount); pointerPair = pointerPair->previous){
-            sum += pointerPair->intensity;
+        dataNode* pointerNode = materialLast;
+        for(int i = 0; (pointerNode != 0 && i < pointCount); pointerNode = pointerNode->previous){
+            sum += pointerNode->intensity;
             i++;
         }
         return sum;
@@ -692,9 +694,9 @@ struct linkedList{
 
     double sumBackXX(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = last;
-        for(int i = 0; (pointerPair != 0 && i < pointCount); pointerPair = pointerPair->previous){
-            sum += pointerPair->time*pointerPair->time;
+        dataNode* pointerNode = materialLast;
+        for(int i = 0; (pointerNode != 0 && i < pointCount); pointerNode = pointerNode->previous){
+            sum += pointerNode->time*pointerNode->time;
             i++;
         }
         return sum;
@@ -702,9 +704,9 @@ struct linkedList{
 
     double sumBackXY(int pointCount){
         double sum = 0;
-        dataPair* pointerPair = last;
-        for(int i = 0; (pointerPair != 0 && i < pointCount); pointerPair = pointerPair->previous){
-            sum += pointerPair->time*pointerPair->intensity;
+        dataNode* pointerNode = materialLast;
+        for(int i = 0; (pointerNode != 0 && i < pointCount); pointerNode = pointerNode->previous){
+            sum += pointerNode->time*pointerNode->intensity;
             i++;
         }
         return sum;
@@ -713,206 +715,249 @@ struct linkedList{
     double countEnd(double accuracy, double maximum){
         int pointCount = 2;
         double base = 0;
-        int lastPoint = 2;
+        int materialLastPoint = 2;
         //cout << maximum*accuracy << endl;
         for(int i = pointCount; i < dataPointCount ;i++){
             base = (pointCount*sumBackXY(pointCount)-sumBackX(pointCount)*sumBackY(pointCount))/(pointCount*sumBackXX(pointCount)-sumBackX(pointCount)*sumBackX(pointCount));
             //cout << dataPointCount-pointCount << " " << base << endl;
-            if (base<maximum*accuracy&&base>-maximum*accuracy) lastPoint = i;
+            if (base<maximum*accuracy&&base>-maximum*accuracy) materialLastPoint = i;
             pointCount++;
         }
-        base = (lastPoint*sumBackXY(lastPoint)-sumBackX(lastPoint)*sumBackY(lastPoint))/(lastPoint*sumBackXX(lastPoint)-sumBackX(lastPoint)*sumBackX(lastPoint));
-        //cout << lastPoint << endl;
-        dataPair* pointerPair = last;
-        for(int i = 0; (pointerPair != 0 && i < lastPoint); pointerPair = pointerPair->previous){
+        base = (materialLastPoint*sumBackXY(materialLastPoint)-sumBackX(materialLastPoint)*sumBackY(materialLastPoint))/(materialLastPoint*sumBackXX(materialLastPoint)-sumBackX(materialLastPoint)*sumBackX(materialLastPoint));
+        //cout << materialLastPoint << endl;
+        dataNode* pointerNode = materialLast;
+        for(int i = 0; (pointerNode != 0 && i < materialLastPoint); pointerNode = pointerNode->previous){
             i++;
         }
-        twoExpFit->beamCalculation->xK = pointerPair->time;
+        twoExpFit->beamCalculation->xK = pointerNode->time;
         //cout << base << endl;
         return base;//(sumBackXX(pointCount)*sumBackY(pointCount)-sumBackX(pointCount)*sumBackXY(pointCount))/(pointCount*sumBackXX(pointCount)-sumBackX(pointCount)*sumBackX(pointCount));
     }
 
     void assignBeams(){
-        //twoExpFit->beamCalculation->xK = last->time;
+        //twoExpFit->beamCalculation->xK = materialLast->time;
         //twoExpFit->beamCalculation->yZero = countStart();
     }
     */
-    void addPairInstrument(double makeTime, int makeIntensity){
-        dataPair* creatingPair = new dataPair;
-        creatingPair->time = makeTime;
-        creatingPair->intensity = makeIntensity;
-        if (laserPointCount == 0){
-            laserFirst = creatingPair;
+
+    // To save instrumental point data similar like for material data
+    void addNodeInstrument(double makeTime, int makeIntensity){
+        dataNode* creatingNode = new dataNode;
+        creatingNode->time = makeTime;
+        creatingNode->intensity = makeIntensity;
+        if (instrumentPointCount == 0){
+            instrumentalFirst = creatingNode;
         }
         else{
-            creatingPair->previous = laserLast;
-            laserLast->next = creatingPair;
+            creatingNode->previous = instrumentLast;
+            instrumentLast->next = creatingNode;
         }
-        laserPointCount++;
-        laserLast = creatingPair;
+        instrumentPointCount++;
+        instrumentLast = creatingNode;
     }
 
+    // To save instrumental data in pairs
     void readFileInstrumental(char fileName[255]){
         ifstream inputFile(fileName);
         while (true){
                 double timeFromFile;
                 int photonCountFromFile;
                 inputFile >> timeFromFile >> photonCountFromFile;
-                addPairInstrument(timeFromFile,photonCountFromFile);
+                addNodeInstrument(timeFromFile,photonCountFromFile);
                 if( inputFile.eof() ) break;
         }
     }
+
+    // To test and see data
     void printInstrumentData(){
-        dataPair* findPair = laserFirst;
-        while (findPair != 0){
-            cout << findPair->time << " " << findPair->intensity << endl;
-            findPair = findPair->next;
+        dataNode* findNode = instrumentalFirst;
+        while (findNode != 0){
+            cout << findNode->time << " " << findNode->intensity << endl;
+            findNode = findNode->next;
         }
     }
 
+    // To know where is the peak of material points in height (intensity scale)
     int findMaximumInstrumental(){
-        dataPair* findPair = laserFirst;
+        dataNode* findNode = instrumentalFirst;
         int maximum = 0;
-        while (findPair != 0){
-            if (findPair->intensity>maximum)
-                maximum = findPair->intensity;
-            findPair = findPair->next;
+        while (findNode != 0){
+            if (findNode->intensity>maximum)
+                maximum = findNode->intensity;
+            findNode = findNode->next;
         }
         return maximum;
     }
 
+    // To center out both graphs with the maximums at time 0
     void allignInstrumentalToMaterial(){
         int maximum = findMaximumInstrumental();
-        dataPair* centeringPair = laserFirst;
-        while (centeringPair != 0 && centeringPair->intensity != maximum){
-            centeringPair = centeringPair->next;
+        dataNode* centeringNode = instrumentalFirst;
+        while (centeringNode != 0 && centeringNode->intensity != maximum){
+            centeringNode = centeringNode->next;
         }
-        double centerTime = centeringPair->time;
-        centeringPair = laserFirst;
-        while (centeringPair != 0){
-            centeringPair->time -= centerTime;
-            centeringPair = centeringPair->next;
+        double centerTime = centeringNode->time;
+        centeringNode = instrumentalFirst;
+        while (centeringNode != 0){
+            centeringNode->time -= centerTime;
+            centeringNode = centeringNode->next;
         }
     }
 
-    void expandInstrumentalToMaterial(){
-
-
-    }
-
+    // To remove data that is not in actual instrument impulse and is often only noise
     void clearInstrumental(){
         int maximum = findMaximumInstrumental();
-        dataPair* middlePair = laserFirst;
-        while (middlePair != 0 && middlePair->intensity != maximum){
-            middlePair = middlePair->next;
+        dataNode* middleNode = instrumentalFirst;
+        while (middleNode != 0 && middleNode->intensity != maximum){
+            middleNode = middleNode->next;
         }
 
-        dataPair* findPair = middlePair;
-        while (findPair != 0 && findPair->intensity > maximum*0.005){
-            findPair = findPair->next;
+        dataNode* findNode = middleNode;
+        while (findNode != 0 && findNode->intensity > maximum*0.005){
+            findNode = findNode->next;
         }
 
-        laserLast = findPair;
-        laserLast->next = 0;
-        findPair = findPair->next;
-        dataPair* deletePair = 0;
-        while (findPair != 0){
-            deletePair = findPair;
-            findPair = findPair->next;
-            delete deletePair;
+        instrumentLast = findNode;
+        instrumentLast->next = 0;
+        findNode = findNode->next;
+        dataNode* deleteNode = 0;
+        while (findNode != 0){
+            deleteNode = findNode;
+            findNode = findNode->next;
+            delete deleteNode;
         }
 
-        findPair = middlePair;
-        while (findPair != 0 && findPair->intensity > maximum*0.005){
-            findPair = findPair->previous;
+        findNode = middleNode;
+        while (findNode != 0 && findNode->intensity > maximum*0.005){
+            findNode = findNode->previous;
         }
 
-        laserFirst = findPair;
-        laserFirst->previous = 0;
-        findPair = findPair->previous;
-        while (findPair != 0){
-            deletePair = findPair;
-            findPair = findPair->previous;
-            delete deletePair;
+        instrumentalFirst = findNode;
+        instrumentalFirst->previous = 0;
+        findNode = findNode->previous;
+        while (findNode != 0){
+            deleteNode = findNode;
+            findNode = findNode->previous;
+            delete deleteNode;
         }
     }
 
-    float countDeconvolutionGoodness(){}
-
+    // To find best fitting deconvolution function using least squares method for goodness factor
     void deconvoluteData(){
         double bestGoodness = -1;
-        double bestCombination[4] = {0,0,0,0};
+        double bestCombination[8] = {0,0,0,0};
         double coefficientStart = 0;
-        double coefficientEnd = first->intensity/findMaximumInstrumental();
+        double coefficientEnd = materialFirst->intensity/findMaximumInstrumental();
         double tauCoefficientStart = 0;
         double tauCoefficientEnd = 1;
         double noiseStart = 0;
-        double noiseEnd = first->intensity;
-        for(int i=0; i<20; i++){
-            for(int sectorCoefficient = 1; sectorCoefficient<=10; sectorCoefficient++){
-                for(int sectorTau = 1; sectorTau<=10; sectorTau++){
-                    deconvoluteSumCounting(coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2,tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2,24.7,-0.015);
-                    if (deconvolutionGoodness()<=bestGoodness||bestGoodness==-1){
-                        bestGoodness=deconvolutionGoodness();
-                        bestCombination[0] = coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/2;
-                        bestCombination[1] = coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2;
-                        bestCombination[2] = tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/2;
-                        bestCombination[3] = tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2;
+        double noiseEnd = materialFirst->intensity;
+        double offsetStart = 0;
+        double offsetEnd = 0.1;
+        int sectorCount = 3;
+        for(int i=0; i<70 && (noiseEnd-noiseStart+offsetEnd-offsetStart+tauCoefficientEnd-tauCoefficientStart+coefficientEnd-coefficientStart)>accuracy; i++){
+            cout << i << " " ;
+            for(int sectorCoefficient = 1; sectorCoefficient<=sectorCount; sectorCoefficient++){
+                for(int sectorTau = 1; sectorTau<=sectorCount; sectorTau++){
+                    for(int sectorNoise = 0; sectorNoise<sectorCount; sectorNoise++){
+                        for(int sectorOffset = 0; sectorOffset<sectorCount; sectorOffset++){
+                            deconvoluteSumCounting(coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/sectorCount,tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/sectorCount,noiseStart+sectorNoise*(noiseEnd-noiseStart)/sectorCount,offsetStart+sectorOffset*(offsetEnd-offsetStart)/sectorCount);
+                            if (deconvolutionGoodness()<=bestGoodness||bestGoodness==-1){
+                                bestGoodness=deconvolutionGoodness();
+                                bestCombination[0] = coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/sectorCount;
+                                bestCombination[1] = coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/sectorCount;
+                                bestCombination[2] = tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/sectorCount;
+                                bestCombination[3] = tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/sectorCount;
+                                bestCombination[4] = noiseStart+sectorNoise*(noiseEnd-noiseStart)/sectorCount;
+                                bestCombination[5] = noiseStart+(sectorNoise+1)*(noiseEnd-noiseStart)/sectorCount;
+                                bestCombination[6] = offsetStart+sectorOffset*(offsetEnd-offsetStart)/sectorCount;
+                                bestCombination[7] = offsetStart+(sectorOffset+1)*(offsetEnd-offsetStart)/sectorCount;
+                            }
+                            //cout << coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/2 << " " << coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2 << " " << tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/2 << " " << tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2 << endl;
+                            //cout << deconvolutionGoodness() << endl;
+                        }
                     }
-                    //cout << coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/2 << " " << coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2 << " " << tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/2 << " " << tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2 << endl;
-                    cout << deconvolutionGoodness() << endl;
                 }
             }
             coefficientStart = bestCombination[0];
             coefficientEnd = bestCombination[1];
             tauCoefficientStart = bestCombination[2];
             tauCoefficientEnd = bestCombination[3];
+            noiseStart = bestCombination[4];
+            noiseEnd = bestCombination[5];
+            offsetStart = bestCombination[6];
+            offsetEnd = bestCombination[7];
+            cout << deconvolutionGoodness() << endl;
         }
-        cout << (bestCombination[0]+bestCombination[1])/2 << " " << (bestCombination[2]+bestCombination[3])/2 << endl;
+        cout << (bestCombination[0]+bestCombination[1])/2 << " // Tau - " << (bestCombination[2]+bestCombination[3])/2 << " with A0 - " << materialFirst->deconvolutionSum << " // " << (bestCombination[4]+bestCombination[5])/2 << " " << (bestCombination[6]+bestCombination[7])/2 << endl;
+        fixedDeconvoluteSumCounting((bestCombination[0]+bestCombination[1])/2,(bestCombination[2]+bestCombination[3])/2,(bestCombination[4]+bestCombination[5])/2,(bestCombination[6]+bestCombination[7])/2);
     }
 
-
+    // To finds best fitting deconvolution function it needs to count for each material point how the function look in the end after adding up exponents
     void deconvoluteSumCounting(double coefficient, double tauCoefficient, double noise, double timeOffset){
-        dataPair* materialPair = first;
-        dataPair* instrumentPair = laserFirst;
-        while (materialPair != 0){
-            materialPair->deconvolutionSum = 0;
-            materialPair = materialPair->next;
+        dataNode* materialNode = materialFirst;
+        dataNode* instrumentNode = instrumentalFirst;
+        while (materialNode != 0){ // Have to clear out from data since that memory region is reused and will use +=
+            materialNode->deconvolutionSum = 0;
+            materialNode = materialNode->next;
         }
-        materialPair = first;
-        while (materialPair != 0){
-            instrumentPair = laserFirst;
-            while (instrumentPair!=0){
-                if (materialPair->time>=instrumentPair->time){
-                    materialPair->deconvolutionSum += coefficient*instrumentPair->intensity*exp(-((materialPair->time-instrumentPair->time)/tauCoefficient));
+        materialNode = materialFirst;
+        while (materialNode != 0){ //To find how good is the function it is important to go through
+            instrumentNode = instrumentalFirst;
+            while (instrumentNode!=0){
+                if (materialNode->time>=instrumentNode->time){
+                    materialNode->deconvolutionSum += coefficient*instrumentNode->intensity*exp(-((materialNode->time-instrumentNode->time-timeOffset)/tauCoefficient));
                 }
-                instrumentPair = instrumentPair->next;
+                instrumentNode = instrumentNode->next;
             }
-            materialPair->deconvolutionSum += noise;
-            materialPair = materialPair->next;
+            materialNode->deconvolutionSum += noise;
+            materialNode = materialNode->next;
         }
     }
 
+    // To count last function but experimental data
+    void fixedDeconvoluteSumCounting(double coefficient, double tauCoefficient, double noise, double timeOffset){
+        dataNode* materialNode = materialFirst;
+        dataNode* instrumentNode = instrumentalFirst;
+        while (materialNode != 0){
+            materialNode->deconvolutionSum = 0;
+            materialNode = materialNode->next;
+        }
+        materialNode = materialFirst;
+        while (materialNode != 0){
+            instrumentNode = instrumentalFirst;
+            while (instrumentNode!=0 && instrumentNode->time<=0){
+                if (materialNode->time>=instrumentNode->time+timeOffset){
+                    materialNode->deconvolutionSum += coefficient*instrumentNode->intensity*exp(-((materialNode->time-instrumentNode->time)/tauCoefficient));
+                }
+                instrumentNode = instrumentNode->next;
+            }
+            materialNode->deconvolutionSum += noise;
+            materialNode = materialNode->next;
+        }
+    }
+
+    // To show end calculated data
     void printDeconvolution(){
-        dataPair* findPair = first;
-        while(findPair !=0){
-            cout << findPair->time << " " << findPair->deconvolutionSum << endl;
-            findPair = findPair->next;
+        dataNode* findNode = materialFirst;
+        while(findNode !=0){
+            cout << findNode->time << " " << findNode->deconvolutionSum << endl;
+            findNode = findNode->next;
         }
     }
 
+    // To compare different variables and see how good is the fit
     float deconvolutionGoodness(){
         double holderGood = 0;
-        dataPair* pointerPair = first;
-        while (pointerPair != 0){
-            holderGood += pow( pointerPair->deconvolutionSum - pointerPair->intensity, 2  );
-            // cout << pointerPair->intensity << " " << zeroA * exp(-(pointerPair->time / tau)) << endl;
-            pointerPair = pointerPair->next;
+        dataNode* pointerNode = materialFirst;
+        while (pointerNode != 0){
+            holderGood += pow( pointerNode->deconvolutionSum - pointerNode->intensity, 2  );
+            // cout << pointerNode->intensity << " " << zeroA * exp(-(pointerNode->time / tau)) << endl;
+            pointerNode = pointerNode->next;
         }
         return holderGood/dataPointCount;
     }
 };
-
 
 // prompt to ask for file name
 void inputFileName(char* name){
@@ -926,7 +971,7 @@ int main()
     Application currently focuses on analyzing experimental data that is saved in 2 columns <time, intensity>
     The data can be read [1] by specified file name [2]
     Data can be changed
-        - Clear till first maximum [3]
+        - Clear till materialFirst maximum [3]
         - Change time scale so the time starts with 0 [4]
     Data can be analyzed
         - Fitting Exp to data [5]
@@ -936,7 +981,7 @@ int main()
         - Difference from Exp and read data [7] from selected folder [9]
     Stop analyzing data [0]
     */
-    cout << "End work [0], Assign reading file [1], Read file [2], Clear till first Maximum [3]," << endl;
+    cout << "End work [0], Assign reading file [1], Read file [2], Clear till materialFirst Maximum [3]," << endl;
     cout << "Move graph time to 0 [4], Fit exp [5], Assign exp output file [6]," << endl;
     cout << "Assign difference output file [7] Write exp to file [8] Write difference to file [9]" << endl;
 
@@ -976,7 +1021,7 @@ int main()
         case 3 :
             {
                 testList->clearTillTime(testList->maxPeak());
-                cout << "Data cleared till first maximum" << endl;
+                cout << "Data cleared till materialFirst maximum" << endl;
                 break;
             }
         case 4 :
@@ -1016,12 +1061,12 @@ int main()
             }
         case 10 :
             {
-                //testList->findTwoFittingExp();
+                testList->findTwoFittingExp();
                 //testList->countStart();
                 //testList->countEnd(0.08, testList->twoExpFit->beamCalculation->yZero);
                 //testList->twoExpFit->beamCalculation->print();
 
-                //cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
+                cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
                 //testOneExp->setupData(testList);
                 //cout << "Exponents fitted to graph - " << testOneExp->aZero << endl;
                 break;
@@ -1033,6 +1078,7 @@ int main()
                 testList->allignInstrumentalToMaterial();
                 //testList->printInstrumentData();
                 testList->deconvoluteData();
+                testList->printDeconvolution();
             }
         }
     }
