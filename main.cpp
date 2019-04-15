@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.2.2
+// V1.2.3
 
 using namespace std;
 
@@ -542,7 +542,7 @@ struct linkedList{
     // To find best fitting deconvolution function using least squares method for goodness factor
     void deconvoluteData(){
         double bestGoodness = -1;
-        double bestCombination[8] = {0,0,0,0};
+        double bestCombination[8] = {0,0,0,0,0,0,0,0};
         double coefficientStart = 0;
         double coefficientEnd = materialFirst->intensity/findMaximumInstrumental();
         double tauCoefficientStart = 0;
@@ -653,6 +653,86 @@ struct linkedList{
         }
         return holderGood/dataPointCount;
     }
+
+    void deconvoluteDataTwoExp(){
+        double bestGoodness = -1;
+        double bestCombination[10] = {0,0,0,0,0,0,0,0,0,0};
+        double coefficientStart = 0;
+        double coefficientEnd = materialFirst->intensity/findMaximumInstrumental();
+        double tauCoefficientStart = 0;
+        double tauCoefficientEnd = 1;
+        double tauTwoCoefficientStart = 0;
+        double tauTwoCoefficientEnd = 0.5;
+        double noiseStart = 0;
+        double noiseEnd = materialFirst->intensity;
+        double offsetStart = 0;
+        double offsetEnd = 0.1;
+        int sectorCount = 2;
+        for(int i=0; i<70 && (noiseEnd-noiseStart+offsetEnd-offsetStart+tauCoefficientEnd-tauCoefficientStart+coefficientEnd-coefficientStart)>accuracy; i++){
+            for(int sectorTau = 1; sectorTau<=sectorCount; sectorTau++){
+                for(int sectorTauTwo = 1; sectorTauTwo<=sectorCount; sectorTauTwo++){
+                    if (tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/sectorCount>=tauTwoCoefficientStart+sectorTau*(tauTwoCoefficientEnd-tauTwoCoefficientStart)/sectorCount)
+                        for(int sectorCoefficient = 1; sectorCoefficient<=sectorCount; sectorCoefficient++){
+                            for(int sectorNoise = 0; sectorNoise<sectorCount; sectorNoise++){
+                                for(int sectorOffset = 0; sectorOffset<sectorCount; sectorOffset++){
+                                    deconvoluteSumCounting(coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/sectorCount,tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/sectorCount, tauTwoCoefficientStart+sectorTau*(tauTwoCoefficientEnd-tauTwoCoefficientStart)/sectorCount,noiseStart+sectorNoise*(noiseEnd-noiseStart)/sectorCount,offsetStart+sectorOffset*(offsetEnd-offsetStart)/sectorCount);
+                                    if (deconvolutionGoodness()<=bestGoodness||bestGoodness==-1){
+                                        bestGoodness=deconvolutionGoodness();
+                                        bestCombination[0] = coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/sectorCount;
+                                        bestCombination[1] = coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/sectorCount;
+                                        bestCombination[2] = tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/sectorCount;
+                                        bestCombination[3] = tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/sectorCount;
+                                        bestCombination[4] = tauTwoCoefficientStart+(sectorTau-1)*(tauTwoCoefficientEnd-tauTwoCoefficientStart)/sectorCount;
+                                        bestCombination[5] = tauTwoCoefficientStart+sectorTau*(tauTwoCoefficientEnd-tauTwoCoefficientStart)/sectorCount;
+                                        bestCombination[6] = noiseStart+sectorNoise*(noiseEnd-noiseStart)/sectorCount;
+                                        bestCombination[7] = noiseStart+(sectorNoise+1)*(noiseEnd-noiseStart)/sectorCount;
+                                        bestCombination[8] = offsetStart+sectorOffset*(offsetEnd-offsetStart)/sectorCount;
+                                        bestCombination[9] = offsetStart+(sectorOffset+1)*(offsetEnd-offsetStart)/sectorCount;
+                                    }
+                                    //cout << coefficientStart+(sectorCoefficient-1)*(coefficientEnd-coefficientStart)/2 << " " << coefficientStart+sectorCoefficient*(coefficientEnd-coefficientStart)/2 << " " << tauCoefficientStart+(sectorTau-1)*(tauCoefficientEnd-tauCoefficientStart)/2 << " " << tauCoefficientStart+sectorTau*(tauCoefficientEnd-tauCoefficientStart)/2 << endl;
+                                    //cout << deconvolutionGoodness() << endl;
+                                }
+                            }
+                        }
+                }
+            }
+            coefficientStart = bestCombination[0];
+            coefficientEnd = bestCombination[1];
+            tauCoefficientStart = bestCombination[2];
+            tauCoefficientEnd = bestCombination[3];
+            tauTwoCoefficientStart = bestCombination[4];
+            tauTwoCoefficientEnd = bestCombination[5];
+            noiseStart = bestCombination[6];
+            noiseEnd = bestCombination[7];
+            offsetStart = bestCombination[8];
+            offsetEnd = bestCombination[9];
+            //cout << deconvolutionGoodness() << endl;
+        }
+        cout << (bestCombination[0]+bestCombination[1])/2 << " // Tau - " << (bestCombination[2]+bestCombination[3])/2 << " // TauTwo - " << (bestCombination[4]+bestCombination[5])/2 << " //  A0 - " << materialFirst->deconvolutionSum << " Noise " << (bestCombination[6]+bestCombination[7])/2 << " timeOffset " << (bestCombination[8]+bestCombination[9])/2 << " " << bestGoodness << endl;
+        //fixedDeconvoluteSumCounting((bestCombination[0]+bestCombination[1])/2,(bestCombination[2]+bestCombination[3])/2,(bestCombination[4]+bestCombination[5])/2,(bestCombination[6]+bestCombination[7])/2,(bestCombination[8]+bestCombination[9])/2);
+    }
+
+    deconvoluteSumCounting(double coefficient, double tauCoefficient, double tauTwoCoefficient, double noise, double timeOffset){
+        dataNode* materialNode = materialFirst;
+        dataNode* instrumentNode = instrumentalFirst;
+        while (materialNode != 0){ // Have to clear out from data since that memory region is reused and will use +=
+            materialNode->deconvolutionSum = 0;
+            materialNode = materialNode->next;
+        }
+        materialNode = materialFirst;
+        while (materialNode != 0){ //To find how good is the function it is important to go through
+            instrumentNode = instrumentalFirst;
+            while (instrumentNode!=0){
+                if (materialNode->time>=instrumentNode->time){
+                    materialNode->deconvolutionSum += coefficient*instrumentNode->intensity*exp(-((materialNode->time-instrumentNode->time-timeOffset)/tauCoefficient));
+                    materialNode->deconvolutionSum += coefficient*instrumentNode->intensity*exp(-((materialNode->time-instrumentNode->time-timeOffset)/tauTwoCoefficient));
+                }
+                instrumentNode = instrumentNode->next;
+            }
+            materialNode->deconvolutionSum += noise;
+            materialNode = materialNode->next;
+        }
+    }
 };
 
 // prompt to ask for file name
@@ -742,7 +822,7 @@ int main()
         case 3 :
             {
                 testList->clearTillTime(testList->maxPeak());
-                cout << "Data cleared till materialFirst maximum" << endl;
+                cout << "Data cleared till material first maximum" << endl;
                 break;
             }
         case 4 :
@@ -814,6 +894,10 @@ int main()
                 testList->deconvoluteData();
                 // cout << "Difference written to file - " << nameOfOutputFileNLLS << endl;
                 break;
+            }
+        case 16 :
+            {
+                testList->deconvoluteDataTwoExp();
             }
         }
     }
