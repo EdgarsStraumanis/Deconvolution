@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.2.3
+// V1.2.4
 
 using namespace std;
 
@@ -42,7 +42,7 @@ struct linkedList{
     dataNode* materialLast = 0;
     dataNode* instrumentalFirst = 0;
     dataNode* instrumentLast = 0;
-    dataNode* instrumentPointCount = 0;
+    int instrumentPointCount = 0;
     int dataPointCount = 0;
     oneExp* oneExpFit = new oneExp;
     twoExp* twoExpFit = new twoExp;
@@ -91,7 +91,8 @@ struct linkedList{
     }
 
     //Removes all data-Nodes from beginning till specified time but not including time that was written
-    void clearTillTime(double timeTill){
+    int clearTillTime(double timeTill){
+        if (dataPointCount < 2) return -1;
         dataNode* deleteNode = materialFirst;
         while (deleteNode !=0 && deleteNode->time < timeTill){
             dataNode* saveNext = deleteNode->next;
@@ -103,8 +104,8 @@ struct linkedList{
     }
 
     // Deducts all time values by materialFirst data-Node's time to move time to zero
-    void moveTimeZero(){
-        if (dataPointCount < 1) return;
+    int moveTimeZero(){
+        if (dataPointCount < 1) return -1;
         dataNode* pointerNode = materialLast;
         while (pointerNode != 0){
             pointerNode->time -= materialFirst->time;
@@ -137,7 +138,9 @@ struct linkedList{
     }
 
     // write to file a Node of data < time, difference between read data and fitted function at time moment>
-    void drawGoodnessToFile1(char fileName[255]){
+    int drawGoodnessToFile1(char fileName[255]){
+        if (dataPointCount < 2) return -1;
+        if (oneExpFit->aZero > 0) return -2;
         ofstream outputFile(fileName);
         dataNode* pointerNode = materialFirst;
         while (pointerNode != 0){
@@ -147,7 +150,9 @@ struct linkedList{
     }
 
     // write to file a Node of data < time, fitted function at time moment >
-    void drawExpToFile1(char fileName[255]){
+    int drawExpToFile1(char fileName[255]){
+        if (dataPointCount < 2) return -1;
+        if (oneExpFit->tauZero != 0) return -2;
         ofstream outputFile(fileName);
         dataNode* pointerNode = materialFirst;
         while (pointerNode != 0){
@@ -228,7 +233,8 @@ struct linkedList{
         return ((oneExpFit->yZeroTwo + oneExpFit->yZeroOne)/2);
     }
     // Fit one exp
-    void findOneFittinExp(){
+    int findOneFittinExp(){
+        if (dataPointCount < 2) return -1;
         oneExpFit->aZero = materialFirst->intensity;
         oneExpFit->yZeroTwo = materialFirst->intensity;
         oneExpFit->yZero = (oneExpFit->yZeroTwo + oneExpFit->yZeroOne)/2;
@@ -431,7 +437,8 @@ struct linkedList{
         }
     }
 
-    void findTwoFittingExp(){
+    int findTwoFittingExp(){
+        if (dataPointCount < 2) return -1;
         findTwoFittingExpAll();
         findTwoFittingExpOne();
         findTwoFittingExpZero();
@@ -487,7 +494,8 @@ struct linkedList{
     }
 
     // To center out both graphs with the maximums at time 0
-    void alignInstrumentalToMaterial(){
+    int alignInstrumentalToMaterial(){
+        if (instrumentPointCount < 1) return -1;
         int maximum = findMaximumInstrumental();
         dataNode* centeringNode = instrumentalFirst;
         while (centeringNode != 0 && centeringNode->intensity != maximum){
@@ -502,7 +510,8 @@ struct linkedList{
     }
 
     // To remove data that is not in actual instrument impulse and is often only noise
-    void clearInstrumental(){
+    int clearInstrumental(){
+        if (instrumentPointCount < 2) return -1;
         int maximum = findMaximumInstrumental();
         dataNode* middleNode = instrumentalFirst;
         while (middleNode != 0 && middleNode->intensity != maximum){
@@ -540,7 +549,14 @@ struct linkedList{
     }
 
     // To find best fitting deconvolution function using least squares method for goodness factor
-    void deconvoluteData(){
+    int deconvoluteData(){
+        if (instrumentPointCount < 1 && dataPointCount < 2) return -1;
+        if (instrumentPointCount < 1) return -2;
+        if (dataPointCount < 2) return -3;
+        // if experimental data aligned
+        if (materialFirst->time != 0) return -4;
+        // if instrumental is matched as maximum
+        // if instrumental is cleared from noise
         double bestGoodness = -1;
         double bestCombination[8] = {0,0,0,0,0,0,0,0};
         double coefficientStart = 0;
@@ -654,7 +670,14 @@ struct linkedList{
         return holderGood/dataPointCount;
     }
 
-    void deconvoluteDataTwoExp(){
+    int deconvoluteDataTwoExp(){
+        if (instrumentPointCount < 1 && dataPointCount < 2) return -1;
+        if (instrumentPointCount < 1) return -2;
+        if (dataPointCount < 2) return -3;
+        // if experimental data aligned
+        if (materialFirst->time != 0) return -4;
+        // if instrumental is matched as maximum
+        // if instrumental is cleared from noise
         double bestGoodness = -1;
         double bestCombination[10] = {0,0,0,0,0,0,0,0,0,0};
         double coefficientStart = 0;
@@ -767,11 +790,52 @@ int main()
         - Difference from Exp and read data [7] from selected folder [9]
     Stop analyzing data [0]
     */
-    string functionDescription[16] = {"End work","!! Assign reading file","!! Read file","Clear till material first maximum",
-    "Move graph time to 0","Fit exp","Assign exp output file","Assign difference output file,","Write exp to file","Write difference to file",
-    "Fit of two exponents","!! Assign instrumental data file","!! Read instrumental data","Align instrumental data to 0",
-    "Remove small data range from instrumental data","Deconvolve material data with instrumental data"};
-    for(int i=0;i<16;i++){
+    string functionDescription[17] = {
+        "End work",
+        "!! Assign reading file",
+        "!! Read file",
+        "Clear till material first maximum",
+        "Move graph time to 0",
+        "Fit exp",
+        "Assign exp output file",
+        "Assign difference output file,",
+        "Write exp to file",
+        "Write difference to file",
+        "Fit of two exponents",
+        "!! Assign instrumental data file",
+        "!! Read instrumental data",
+        "Align instrumental data to 0",
+        "Remove small data range from instrumental data",
+        "Deconvolve material data with instrumental data",
+        "Deconvolve material data with instrumental data with 2 exponents"
+        };
+    string functionResponses[100] = {
+        "Ending work...", // 0
+        "Experimental data file is selected",
+        "Experimental data file was read",
+        "Data cleared till material first maximum",
+        "Experimental data set has 1 or no data points",
+        "Graph moved on time axis to 0", // 5
+        "Experimental data has no data points",
+        "File selected for Exp",
+        "File selected for Difference",
+        "Exp written to file - ",
+        "Difference written to file - ", //10
+        "Instrumental data file is selected",
+        "Instrumental data file was read",
+        "Instrumental data was aligned with material data with maximums at 0",
+        "Instrument data set has 1 or less data points",
+        "Instrumental data has been cleared and only impulse is left", //15
+        "Instrument data set has 1 or less data points",
+        "",
+        "Instrumental and experimental data doesn't contain enough data",
+        "Instrumental data has no data points",
+        "Experimental data has 1 or no data points",
+        "Instrumental data is not aligned to time 0 with maximum", //20
+        "Experimental data is not aligned to time 0",
+        "Instrumental data still contains noise"
+        };
+    for(int i=0;i<17;i++){
         cout << i;
         if (i<10)
             cout << "   ";
@@ -793,6 +857,7 @@ int main()
     char nameOfOutputFileExp[255] = "resultExp.txt";
     char nameOfOutputFileNLLS[255] = "resultNLLS.txt"; //NLLS --- non-linear least squares method
     bool caseTrue = true;
+    int errorCode = 0;
 
     oneExp* testOneExp = new oneExp;
     double accuracy = 0.00001;
@@ -803,103 +868,201 @@ int main()
         switch (command) {
         case 0 :
             {
-                cout << "Ending work..." << endl;
+                cout << functionResponses[0] << endl;
                 caseTrue = false;
                 break;
             }
         case 1 :
             {
                 inputFileName(nameOfInputFile);
-                cout << "File selected for reading" << endl;
+                cout << functionResponses[1] << endl;
                 break;
             }
         case 2 :
             {
                 testList->readFile(nameOfInputFile);
-                cout << "File read" << endl;
+                cout << functionResponses[2] << endl;
                 break;
             }
         case 3 :
             {
-                testList->clearTillTime(testList->maxPeak());
-                cout << "Data cleared till material first maximum" << endl;
+                errorCode = testList->clearTillTime(testList->maxPeak());
+                if (errorCode>=0)
+                    cout << functionResponses[3] << endl;
+                else if (errorCode == -1)
+                    cout << functionResponses[4] << endl;
                 break;
             }
         case 4 :
             {
-                testList->moveTimeZero();
-                cout << "Graph moved on time axis to 0" << endl;
+                errorCode = testList->moveTimeZero();
+                if (errorCode>=0)
+                    cout << functionResponses[5] << endl;
+                else if (errorCode == -1)
+                    cout << functionResponses[6] << endl;
                 break;
             }
         case 5 :
             {
-                testList->findOneFittinExp();
+                errorCode = testList->findOneFittinExp();
+                if (errorCode>=0)
+                {}
+                else if (errorCode == -1)
+                    cout << functionResponses[4] << endl;
                 break;
             }
         case 6 :
             {
                 inputFileName(nameOfOutputFileExp);
-                cout << "File selected for Exp" << endl;
+                cout << functionResponses[7] << endl;
                 break;
             }
         case 7 :
             {
                 inputFileName(nameOfOutputFileNLLS);
-                cout << "File selected for Difference" << endl;
+                cout << functionResponses[8] << endl;
                 break;
             }
         case 8 :
             {
                 testList->drawGoodnessToFile1(nameOfOutputFileExp);
-                cout << "Exp written to file - " << nameOfOutputFileExp << endl;
+                cout << functionResponses[9] << nameOfOutputFileExp << endl;
                 break;
             }
         case 9 :
             {
                 testList->drawExpToFile1(nameOfOutputFileNLLS);
-                cout << "Difference written to file - " << nameOfOutputFileNLLS << endl;
+                cout << functionResponses[10] << nameOfOutputFileNLLS << endl;
                 break;
             }
         case 10 :
             {
-                testList->findTwoFittingExp();
-                cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
+                errorCode = testList->findTwoFittingExp();
+                if (errorCode>=0)
+                {
+                    cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
+                }
+                else if (errorCode == -1)
+                    cout << functionResponses[4] << endl; //functionResponses[]
                 break;
             }
         case 11 :
             {
                 inputInstrumentalFileName(nameOfInputFileInstrument);
+                cout << functionDescription[11] << endl;
                 break;
             }
         case 12 :
             {
                 testList->readFileInstrumental(nameOfInputFileInstrument);
-                cout << "Instrumental data file was read" << endl;
+                cout << functionResponses[12] << endl;
                 break;
             }
         case 13 :
             {
-                testList->alignInstrumentalToMaterial();
-                cout << "Instrumental data was aligned with material data with maximums at 0" << endl;
+                errorCode = testList->alignInstrumentalToMaterial();
+                if (errorCode>=0)
+                    cout << functionResponses[13] << endl;
+                else if (errorCode == -1)
+                    cout << functionResponses[14] << endl;
                 break;
             }
         case 14 :
             {
-                testList->clearInstrumental();
-                cout << "Instrumental data has been cleared and only impulse is left" << endl;
+                errorCode = testList->clearInstrumental();
+                if (errorCode>=0)
+                    cout << functionResponses[15] << endl;
+                else if (errorCode == -1)
+                    cout << functionResponses[16] << endl;
                 break;
             }
         case 15 :
             {
-                testList->deconvoluteData();
+                errorCode = testList->deconvoluteData();
                 // cout << "Difference written to file - " << nameOfOutputFileNLLS << endl;
+                switch (errorCode){
+                case 0:
+                    {
+                        cout << functionResponses[17] << endl;
+                        break;
+                    }
+                case -1:
+                    {
+                        cout << functionResponses[18] << endl;
+                        break;
+                    }
+                case -2:
+                    {
+                        cout << functionResponses[19] << endl;
+                        break;
+                    }
+                case -3:
+                    {
+                        cout << functionResponses[20] << endl;
+                        break;
+                    }
+                case -4:
+                    {
+                        cout << functionResponses[21] << endl;
+                        break;
+                    }
+                case -5:
+                    {
+                        cout << functionResponses[22] << endl;
+                        break;
+                    }
+                case -6:
+                    {
+                        cout << functionResponses[23] << endl;
+                        break;
+                    }
+                }
                 break;
             }
         case 16 :
             {
-                testList->deconvoluteDataTwoExp();
+                errorCode = testList->deconvoluteDataTwoExp();
+                switch (errorCode){
+                case 0:
+                    {
+                        cout << functionResponses[17] << endl;
+                        break;
+                    }
+                case -1:
+                    {
+                        cout << functionResponses[18] << endl;
+                        break;
+                    }
+                case -2:
+                    {
+                        cout << functionResponses[19] << endl;
+                        break;
+                    }
+                case -3:
+                    {
+                        cout << functionResponses[20] << endl;
+                        break;
+                    }
+                case -4:
+                    {
+                        cout << functionResponses[21] << endl;
+                        break;
+                    }
+                case -5:
+                    {
+                        cout << functionResponses[22] << endl;
+                        break;
+                    }
+                case -6:
+                    {
+                        cout << functionResponses[23] << endl;
+                        break;
+                    }
+                }
+                break;
             }
         }
+        errorCode = 0;
     }
     return 0;
 }
