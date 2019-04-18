@@ -3,7 +3,7 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.2.4
+// V1.2.5
 
 using namespace std;
 
@@ -44,6 +44,7 @@ struct linkedList{
     dataNode* instrumentLast = 0;
     int instrumentPointCount = 0;
     int dataPointCount = 0;
+    float interpolationStep = 0;
     oneExp* oneExpFit = new oneExp;
     twoExp* twoExpFit = new twoExp;
     double accuracy = 0.0000001;
@@ -756,6 +757,68 @@ struct linkedList{
             materialNode = materialNode->next;
         }
     }
+
+    double interpolateSegment(dataNode* basePointer, double xi, int n)
+    {
+        double result = 0; // Initialize result
+        dataNode* instrumentPointer = basePointer;
+        for (int i=0; i<n; i++)
+        {
+            // Compute individual terms of above formula
+            double term = instrumentPointer->intensity;//double term = f[i].y;
+            dataNode* secondInstrumentPointer = basePointer;
+            for (int j=0;j<n;j++)
+            {
+                if (j!=i)
+                    term = term*double(xi - secondInstrumentPointer->time)/double(instrumentPointer->time - secondInstrumentPointer->time);
+                secondInstrumentPointer = secondInstrumentPointer->next;
+            }
+
+            // Add current term to result
+            result += term;
+            instrumentPointer = instrumentPointer->next;
+        }
+        return result;
+    }
+
+    int interpolateInstrumentData(int stepCount){
+        if (stepCount > instrumentPointCount) return -1;
+        interpolationStep = (instrumentLast->time-instrumentalFirst->time) / (stepCount-1);
+        dataNode* instrumentDataPointer = instrumentalFirst;
+        dataNode* saveInterpolationPointer = instrumentalFirst;
+        for(int newPoint=0; newPoint < stepCount; newPoint++){
+            while(instrumentDataPointer->next->next->next->next->next->next!=0 && instrumentDataPointer->next->next->next->time<=instrumentalFirst->time+newPoint*interpolationStep)
+                instrumentDataPointer = instrumentDataPointer->next;
+            saveInterpolationPointer->deconvolutionSum = interpolateSegment(instrumentDataPointer,instrumentalFirst->time+newPoint*interpolationStep,5);
+            if (saveInterpolationPointer->deconvolutionSum < 0) saveInterpolationPointer->deconvolutionSum = 0;
+            saveInterpolationPointer = saveInterpolationPointer->next;
+        }
+
+
+        instrumentDataPointer = instrumentalFirst;
+        for(int i=0; i < stepCount;i++){
+            instrumentDataPointer->intensity=instrumentDataPointer->deconvolutionSum;
+            instrumentDataPointer->deconvolutionSum = 0;
+            instrumentDataPointer->time = instrumentalFirst->time+i*interpolationStep;
+            instrumentDataPointer = instrumentDataPointer->next;
+        }
+
+
+        saveInterpolationPointer = instrumentDataPointer;
+        instrumentLast = instrumentDataPointer->previous;
+        instrumentDataPointer->previous->next = 0;
+        while (instrumentDataPointer != 0){
+            saveInterpolationPointer = instrumentDataPointer;
+            instrumentDataPointer = instrumentDataPointer->next;
+            delete saveInterpolationPointer;
+        }
+
+        instrumentDataPointer = instrumentalFirst;
+        while(instrumentDataPointer!=0){
+            cout << instrumentDataPointer ->intensity << " " << instrumentDataPointer->deconvolutionSum << endl;
+            instrumentDataPointer = instrumentDataPointer->next;
+        }
+    }
 };
 
 // prompt to ask for file name
@@ -1061,6 +1124,11 @@ int main()
                 }
                 break;
             }
+            case 17 :
+                {
+                    errorCode = testList->interpolateInstrumentData(125);
+
+                }
         }
         errorCode = 0;
     }
