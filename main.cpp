@@ -3,11 +3,12 @@
 #include <math.h>
 #include <windows.h>
 
-// V1.2.5
+#include <time.h>
+// V1.3.1
 
 using namespace std;
 
-// To save data about 1 exponents fitted to one experimental data function - tau0, A0, y0 (noise)
+// To save data about 1 exponents fitted to one Experiment data function - tau0, A0, y0 (noise)
 struct oneExp{
     double tauZero = 1;
     double aZero = 0;
@@ -16,7 +17,7 @@ struct oneExp{
     double yZero = (yZeroTwo - yZeroOne)/2;
 };
 
-// To save data about 2 exponents fitted to one experimental data function - tau0, A0, tau1, A1, y0 (noise)
+// To save data about 2 exponents fitted to one Experiment data function - tau0, A0, tau1, A1, y0 (noise)
 struct twoExp{
     double tauZero = 0;
     double aZero = 0;
@@ -40,10 +41,11 @@ struct dataNode{
 struct linkedList{
     dataNode* materialFirst = 0;
     dataNode* materialLast = 0;
-    dataNode* instrumentalFirst = 0;
+    dataNode* InstrumentFirst = 0;
     dataNode* instrumentLast = 0;
     int instrumentPointCount = 0;
     int dataPointCount = 0;
+    int interpolationStepCount = 0;
     float interpolationStep = 0;
     oneExp* oneExpFit = new oneExp;
     twoExp* twoExpFit = new twoExp;
@@ -77,6 +79,17 @@ struct linkedList{
         }
         materialFirst = 0;
         materialLast = 0;
+
+        oneExpFit->tauZero = 1;
+        oneExpFit->aZero = 0;
+        oneExpFit->yZeroOne = 0;
+        oneExpFit->yZeroTwo = 0;
+        oneExpFit->yZero = 0;
+        twoExpFit->tauZero = 0;
+        twoExpFit->aZero = 0;
+        twoExpFit->tauOne = 0;
+        twoExpFit->aOne = 0;
+        twoExpFit->yZero = 0;
     }
 
     // Find time-point with maximum intensity
@@ -127,8 +140,10 @@ struct linkedList{
     }
 
     // Reads data from file and sends it to other function to add to list
-    void readFile(char fileName[255]){
+    int readFile(char fileName[255]){
+        clearList();
         ifstream inputFile(fileName);
+        if (inputFile)
         while (true){
                 double timeFromFile;
                 int intensityFromFile;
@@ -136,32 +151,59 @@ struct linkedList{
                 addNode(timeFromFile,intensityFromFile);
                 if( inputFile.eof() ) break;
         }
+        else
+            return -1;
+        if (dataPointCount < 1) return -2;
+        return 0;
     }
 
     // write to file a Node of data < time, difference between read data and fitted function at time moment>
     int drawGoodnessToFile1(char fileName[255]){
         if (dataPointCount < 2) return -1;
-        if (oneExpFit->aZero > 0) return -2;
+        if (oneExpFit->aZero == 0) return -2;
         ofstream outputFile(fileName);
         dataNode* pointerNode = materialFirst;
         while (pointerNode != 0){
             outputFile << pointerNode->time << " " << (pointerNode->intensity - (oneExpFit->aZero * exp(-(pointerNode->time / oneExpFit->tauZero)) + oneExpFit->yZero) ) << endl;
             pointerNode = pointerNode->next;
         }
+        return 0;
     }
 
     // write to file a Node of data < time, fitted function at time moment >
     int drawExpToFile1(char fileName[255]){
         if (dataPointCount < 2) return -1;
-        if (oneExpFit->tauZero != 0) return -2;
+        if (oneExpFit->aZero == 0) return -2;
         ofstream outputFile(fileName);
         dataNode* pointerNode = materialFirst;
         while (pointerNode != 0){
             outputFile << pointerNode->time << " " << (oneExpFit->aZero * exp(-(pointerNode->time / oneExpFit->tauZero)) + oneExpFit->yZero) << endl;
             pointerNode = pointerNode->next;
         }
+        return 0;
     }
-
+    int drawGoodnessToFile2(char fileName[255]){
+        if (dataPointCount < 2) return -1;
+        if (twoExpFit->aZero == 0) return -2;
+        ofstream outputFile(fileName);
+        dataNode* pointerNode = materialFirst;
+        while (pointerNode != 0){
+            outputFile << pointerNode->time << " " << (pointerNode->intensity - (twoExpFit->aZero * exp(-(pointerNode->time / twoExpFit->tauZero)) + twoExpFit->aOne * exp(-(pointerNode->time / twoExpFit->tauOne)) + twoExpFit->yZero) ) << endl;
+            pointerNode = pointerNode->next;
+        }
+        return 0;
+    }
+    int drawExpToFile2(char fileName[255]){
+        if (dataPointCount < 2) return -1;
+        if (oneExpFit->aZero == 0) return -2;
+        ofstream outputFile(fileName);
+        dataNode* pointerNode = materialFirst;
+        while (pointerNode != 0){
+            outputFile << pointerNode->time << " " << (twoExpFit->aZero * exp(-(pointerNode->time / twoExpFit->tauZero)) + twoExpFit->aOne * exp(-(pointerNode->time / twoExpFit->tauOne)) + twoExpFit->yZero) << endl;
+            pointerNode = pointerNode->next;
+        }
+        return 0;
+    }
     // -----------One exponent fitting-------------
     // Tries to find sector for Tau for exp using golden cut method by reducing a range by halving the region whichever fits better
     double findSectorTau1(){
@@ -445,13 +487,13 @@ struct linkedList{
         findTwoFittingExpZero();
     }
 
-    // To save instrumental point data similar like for material data
+    // To save Instrument point data similar like for material data
     void addNodeInstrument(double makeTime, int makeIntensity){
         dataNode* creatingNode = new dataNode;
         creatingNode->time = makeTime;
         creatingNode->intensity = makeIntensity;
         if (instrumentPointCount == 0){
-            instrumentalFirst = creatingNode;
+            InstrumentFirst = creatingNode;
         }
         else{
             creatingNode->previous = instrumentLast;
@@ -461,9 +503,11 @@ struct linkedList{
         instrumentLast = creatingNode;
     }
 
-    // To save instrumental data in pairs
-    void readFileInstrumental(char fileName[255]){
+    // To save Instrument data in pairs
+    int readFileInstrument(char fileName[255]){
         ifstream inputFile(fileName);
+        removeAllInstrumentData();
+        if (inputFile)
         while (true){
                 double timeFromFile;
                 int photonCountFromFile;
@@ -471,11 +515,14 @@ struct linkedList{
                 addNodeInstrument(timeFromFile,photonCountFromFile);
                 if( inputFile.eof() ) break;
         }
+        else
+            return -1;
+        return 0;
     }
 
     // To test and see data
     void printInstrumentData(){
-        dataNode* findNode = instrumentalFirst;
+        dataNode* findNode = InstrumentFirst;
         while (findNode != 0){
             cout << findNode->time << " " << findNode->intensity << endl;
             findNode = findNode->next;
@@ -483,8 +530,8 @@ struct linkedList{
     }
 
     // To know where is the peak of material points in height (intensity scale)
-    int findMaximumInstrumental(){
-        dataNode* findNode = instrumentalFirst;
+    int findMaximumInstrument(){
+        dataNode* findNode = InstrumentFirst;
         int maximum = 0;
         while (findNode != 0){
             if (findNode->intensity>maximum)
@@ -495,15 +542,15 @@ struct linkedList{
     }
 
     // To center out both graphs with the maximums at time 0
-    int alignInstrumentalToMaterial(){
+    int alignInstrumentToMaterial(){
         if (instrumentPointCount < 1) return -1;
-        int maximum = findMaximumInstrumental();
-        dataNode* centeringNode = instrumentalFirst;
+        int maximum = findMaximumInstrument();
+        dataNode* centeringNode = InstrumentFirst;
         while (centeringNode != 0 && centeringNode->intensity != maximum){
             centeringNode = centeringNode->next;
         }
         double centerTime = centeringNode->time;
-        centeringNode = instrumentalFirst;
+        centeringNode = InstrumentFirst;
         while (centeringNode != 0){
             centeringNode->time -= centerTime;
             centeringNode = centeringNode->next;
@@ -511,38 +558,41 @@ struct linkedList{
     }
 
     // To remove data that is not in actual instrument impulse and is often only noise
-    int clearInstrumental(){
+    int clearInstrument(){
         if (instrumentPointCount < 2) return -1;
-        int maximum = findMaximumInstrumental();
-        dataNode* middleNode = instrumentalFirst;
+        int maximum = findMaximumInstrument();
+        dataNode* middleNode = InstrumentFirst;
         while (middleNode != 0 && middleNode->intensity != maximum){
             middleNode = middleNode->next;
         }
 
         dataNode* findNode = middleNode;
-        while (findNode != 0 && findNode->intensity > maximum*0.005){
+        while (findNode != 0 && findNode->intensity > maximum*0.001){
             findNode = findNode->next;
         }
 
         instrumentLast = findNode;
-        instrumentLast->next = 0;
         findNode = findNode->next;
+        instrumentLast->next = 0;
         dataNode* deleteNode = 0;
         while (findNode != 0){
+            instrumentPointCount--;
             deleteNode = findNode;
             findNode = findNode->next;
             delete deleteNode;
         }
 
         findNode = middleNode;
-        while (findNode != 0 && findNode->intensity > maximum*0.005){
+        while (findNode != 0 && findNode->intensity > maximum*0.001){
             findNode = findNode->previous;
         }
 
-        instrumentalFirst = findNode;
-        instrumentalFirst->previous = 0;
+        InstrumentFirst = findNode;
         findNode = findNode->previous;
+        InstrumentFirst->previous = 0;
+
         while (findNode != 0){
+            instrumentPointCount--;
             deleteNode = findNode;
             findNode = findNode->previous;
             delete deleteNode;
@@ -554,14 +604,24 @@ struct linkedList{
         if (instrumentPointCount < 1 && dataPointCount < 2) return -1;
         if (instrumentPointCount < 1) return -2;
         if (dataPointCount < 2) return -3;
-        // if experimental data aligned
-        if (materialFirst->time != 0) return -4;
-        // if instrumental is matched as maximum
-        // if instrumental is cleared from noise
+        int maximum = findMaximumInstrument();
+        dataNode* errorChecker = InstrumentFirst;
+        int minimumCount = 0;
+        bool alligned = false;
+        for(;errorChecker!=0;errorChecker=errorChecker->next){
+            if (errorChecker->intensity<maximum*0.001) minimumCount++;
+            if (errorChecker->time == 0 && errorChecker->intensity == maximum) alligned = true;
+        }
+        if (minimumCount>2) return -6; // if Instrument is cleared from noise
+        if (materialFirst->time != 0) return -5; // if Experiment data aligned
+        if (alligned == false) return -4; // if Instrument is matched as maximum
+        if (materialFirst->time!=0) return -8;
+        if (maxPeak()!=0) return -7;
+
         double bestGoodness = -1;
         double bestCombination[8] = {0,0,0,0,0,0,0,0};
         double coefficientStart = 0;
-        double coefficientEnd = materialFirst->intensity/findMaximumInstrumental();
+        double coefficientEnd = materialFirst->intensity/findMaximumInstrument();
         double tauCoefficientStart = 0;
         double tauCoefficientEnd = 1;
         double noiseStart = 0;
@@ -609,14 +669,14 @@ struct linkedList{
     // To finds best fitting deconvolution function it needs to count for each material point how the function look in the end after adding up exponents
     void deconvoluteSumCounting(double coefficient, double tauCoefficient, double noise, double timeOffset){
         dataNode* materialNode = materialFirst;
-        dataNode* instrumentNode = instrumentalFirst;
+        dataNode* instrumentNode = InstrumentFirst;
         while (materialNode != 0){ // Have to clear out from data since that memory region is reused and will use +=
             materialNode->deconvolutionSum = 0;
             materialNode = materialNode->next;
         }
         materialNode = materialFirst;
         while (materialNode != 0){ //To find how good is the function it is important to go through
-            instrumentNode = instrumentalFirst;
+            instrumentNode = InstrumentFirst;
             while (instrumentNode!=0){
                 if (materialNode->time>=instrumentNode->time){
                     materialNode->deconvolutionSum += coefficient*instrumentNode->intensity*exp(-((materialNode->time-instrumentNode->time-timeOffset)/tauCoefficient));
@@ -628,17 +688,17 @@ struct linkedList{
         }
     }
 
-    // To count last function but experimental data
+    // To count last function but Experiment data
     void fixedDeconvoluteSumCounting(double coefficient, double tauCoefficient, double noise, double timeOffset){
         dataNode* materialNode = materialFirst;
-        dataNode* instrumentNode = instrumentalFirst;
+        dataNode* instrumentNode = InstrumentFirst;
         while (materialNode != 0){
             materialNode->deconvolutionSum = 0;
             materialNode = materialNode->next;
         }
         materialNode = materialFirst;
         while (materialNode != 0){
-            instrumentNode = instrumentalFirst;
+            instrumentNode = InstrumentFirst;
             while (instrumentNode!=0 && instrumentNode->time<=0){
                 if (materialNode->time>=instrumentNode->time+timeOffset){
                     materialNode->deconvolutionSum += coefficient*instrumentNode->intensity*exp(-((materialNode->time-instrumentNode->time)/tauCoefficient));
@@ -675,14 +735,23 @@ struct linkedList{
         if (instrumentPointCount < 1 && dataPointCount < 2) return -1;
         if (instrumentPointCount < 1) return -2;
         if (dataPointCount < 2) return -3;
-        // if experimental data aligned
-        if (materialFirst->time != 0) return -4;
-        // if instrumental is matched as maximum
-        // if instrumental is cleared from noise
+        int maximum = findMaximumInstrument();
+        dataNode* errorChecker = InstrumentFirst;
+        int minimumCount = 0;
+        bool alligned = false;
+        for(;errorChecker!=0;errorChecker=errorChecker->next){
+            if (errorChecker->intensity<maximum*0.001) minimumCount++;
+            if (errorChecker->time == 0 && errorChecker->intensity == maximum) alligned = true;
+        }
+        if (minimumCount>2) return -6; // if Instrument is cleared from noise
+        if (materialFirst->time != 0) return -5; // if Experiment data aligned
+        if (alligned == false) return -4; // if Instrument is matched as maximum
+        if (materialFirst->time!=0) return -8;
+        if (maxPeak()!=0) return -7;
         double bestGoodness = -1;
         double bestCombination[10] = {0,0,0,0,0,0,0,0,0,0};
         double coefficientStart = 0;
-        double coefficientEnd = materialFirst->intensity/findMaximumInstrumental();
+        double coefficientEnd = materialFirst->intensity/findMaximumInstrument();
         double tauCoefficientStart = 0;
         double tauCoefficientEnd = 1;
         double tauTwoCoefficientStart = 0;
@@ -738,14 +807,14 @@ struct linkedList{
 
     deconvoluteSumCounting(double coefficient, double tauCoefficient, double tauTwoCoefficient, double noise, double timeOffset){
         dataNode* materialNode = materialFirst;
-        dataNode* instrumentNode = instrumentalFirst;
+        dataNode* instrumentNode = InstrumentFirst;
         while (materialNode != 0){ // Have to clear out from data since that memory region is reused and will use +=
             materialNode->deconvolutionSum = 0;
             materialNode = materialNode->next;
         }
         materialNode = materialFirst;
         while (materialNode != 0){ //To find how good is the function it is important to go through
-            instrumentNode = instrumentalFirst;
+            instrumentNode = InstrumentFirst;
             while (instrumentNode!=0){
                 if (materialNode->time>=instrumentNode->time){
                     materialNode->deconvolutionSum += coefficient*instrumentNode->intensity*exp(-((materialNode->time-instrumentNode->time-timeOffset)/tauCoefficient));
@@ -758,8 +827,7 @@ struct linkedList{
         }
     }
 
-    double interpolateSegment(dataNode* basePointer, double xi, int n)
-    {
+    double interpolateSegment(dataNode* basePointer, double xi, int n){
         double result = 0; // Initialize result
         dataNode* instrumentPointer = basePointer;
         for (int i=0; i<n; i++)
@@ -781,25 +849,32 @@ struct linkedList{
         return result;
     }
 
-    int interpolateInstrumentData(int stepCount){
-        if (stepCount > instrumentPointCount) return -1;
-        interpolationStep = (instrumentLast->time-instrumentalFirst->time) / (stepCount-1);
-        dataNode* instrumentDataPointer = instrumentalFirst;
-        dataNode* saveInterpolationPointer = instrumentalFirst;
-        for(int newPoint=0; newPoint < stepCount; newPoint++){
-            while(instrumentDataPointer->next->next->next->next->next->next!=0 && instrumentDataPointer->next->next->next->time<=instrumentalFirst->time+newPoint*interpolationStep)
+    int interpolateInstrumentData(){
+        cout << "Interpolation point count: ";
+        cin >> interpolationStepCount;
+        if (instrumentPointCount < 2)
+            return -3;
+        if (interpolationStepCount < 1)
+            return -1;
+        if (interpolationStepCount >= instrumentPointCount)
+            return -2;
+        interpolationStep = (instrumentLast->time-InstrumentFirst->time) / (interpolationStepCount-1);
+        dataNode* instrumentDataPointer = InstrumentFirst;
+        dataNode* saveInterpolationPointer = InstrumentFirst;
+        for(int newPoint=0; newPoint < interpolationStepCount; newPoint++){
+            while(instrumentDataPointer->next->next->next->next->next->next!=0 && instrumentDataPointer->next->next->next->time<=InstrumentFirst->time+newPoint*interpolationStep)
                 instrumentDataPointer = instrumentDataPointer->next;
-            saveInterpolationPointer->deconvolutionSum = interpolateSegment(instrumentDataPointer,instrumentalFirst->time+newPoint*interpolationStep,5);
+            saveInterpolationPointer->deconvolutionSum = interpolateSegment(instrumentDataPointer,InstrumentFirst->time+newPoint*interpolationStep,5);
             if (saveInterpolationPointer->deconvolutionSum < 0) saveInterpolationPointer->deconvolutionSum = 0;
             saveInterpolationPointer = saveInterpolationPointer->next;
         }
 
 
-        instrumentDataPointer = instrumentalFirst;
-        for(int i=0; i < stepCount;i++){
+        instrumentDataPointer = InstrumentFirst;
+        for(int i=0; i < interpolationStepCount;i++){
             instrumentDataPointer->intensity=instrumentDataPointer->deconvolutionSum;
             instrumentDataPointer->deconvolutionSum = 0;
-            instrumentDataPointer->time = instrumentalFirst->time+i*interpolationStep;
+            instrumentDataPointer->time = InstrumentFirst->time+i*interpolationStep;
             instrumentDataPointer = instrumentDataPointer->next;
         }
 
@@ -813,10 +888,24 @@ struct linkedList{
             delete saveInterpolationPointer;
         }
 
-        instrumentDataPointer = instrumentalFirst;
+        instrumentDataPointer = InstrumentFirst;
         while(instrumentDataPointer!=0){
-            cout << instrumentDataPointer ->intensity << " " << instrumentDataPointer->deconvolutionSum << endl;
+            //cout << instrumentDataPointer ->intensity << " " << instrumentDataPointer->deconvolutionSum << endl;
             instrumentDataPointer = instrumentDataPointer->next;
+        }
+    }
+
+    void removeAllInstrumentData(){
+        if (instrumentPointCount == 0) return;
+        dataNode* instrumentDataPointer = InstrumentFirst;
+        dataNode* deleteInterpolationPointer = instrumentDataPointer;
+        InstrumentFirst = 0;
+        instrumentLast = 0;
+        instrumentPointCount = 0;
+        while (instrumentDataPointer != 0){
+            deleteInterpolationPointer = instrumentDataPointer;
+            instrumentDataPointer = instrumentDataPointer->next;
+            delete deleteInterpolationPointer;
         }
     }
 };
@@ -827,15 +916,15 @@ void inputFileName(char* name){
     cin >> name;
 }
 
-void inputInstrumentalFileName(char* name){
-    cout << "Input instrumental file name";
+void inputInstrumentFileName(char* name){
+    cout << "Input Instrument file name";
     cin >> name;
 }
 
 int main()
 {
     /*
-    Application currently focuses on analyzing experimental data that is saved in 2 columns <time, intensity>
+    Application currently focuses on analyzing Experiment data that is saved in 2 columns <time, intensity>
     The material data can be read [2] by specified file name [1]
     The instrument data can b read [12] by specified file name [11]
     Material data can be changed
@@ -853,52 +942,60 @@ int main()
         - Difference from Exp and read data [7] from selected folder [9]
     Stop analyzing data [0]
     */
-    string functionDescription[17] = {
-        "End work",
-        "!! Assign reading file",
-        "!! Read file",
+    int functionDescriptionCount = 16;
+    string functionDescription[functionDescriptionCount] = {
+        "End work", //0
+        "!! Assign reading file and read file",
         "Clear till material first maximum",
         "Move graph time to 0",
         "Fit exp",
-        "Assign exp output file",
-        "Assign difference output file,",
-        "Write exp to file",
-        "Write difference to file",
+        "Assign exp output file and write exp to file", //5
+        "Assign difference output file and write difference to file",
         "Fit of two exponents",
-        "!! Assign instrumental data file",
-        "!! Read instrumental data",
-        "Align instrumental data to 0",
-        "Remove small data range from instrumental data",
-        "Deconvolve material data with instrumental data",
-        "Deconvolve material data with instrumental data with 2 exponents"
+        "Assign two exp output file and write exp to file",
+        "Assign difference output file and write difference to file",
+        "!! Assign instrument data file and read instrument data", //10
+        "Align Instrument data to 0",
+        "Remove small data range from Instrument data",
+        "Interpolate instrument data points",
+        "Deconvolve material data with instrument data",
+        "Deconvolve material data with instrument data with 2 exponents"//15
+        };
+    string errorResponses[100] = {
+        "Ending work...", // 0
+        "Experiment data set has 1 or no data points",
+        "Experiment data has no data points",
+        "Instrument data set has 1 or less data points",
+        "Instrument and experiment data doesn't contain enough data",
+        "Instrument data has no data points", //5
+        "Instrument data is not aligned to time 0 with maximum",
+        "Experiment data is not aligned to time 0",
+        "Instrument data still contains noise",
+        "Invalid interpolation step count - negative",
+        "Invalid interpolation step count - more than instrument data points", //10
+        "Instrument file contains no data points or just 1",
+        "Experiment data doesn't have maximum at 0",
+        "Experiment data has data before maximum",
+        "File doesn't exist",
+        "Exponent(s) is(are) not fitted"
         };
     string functionResponses[100] = {
         "Ending work...", // 0
-        "Experimental data file is selected",
-        "Experimental data file was read",
+        "Experiment data file is selected",
+        "Experiment data file was read",
         "Data cleared till material first maximum",
-        "Experimental data set has 1 or no data points",
-        "Graph moved on time axis to 0", // 5
-        "Experimental data has no data points",
-        "File selected for Exp",
+        "Graph moved on time axis to 0",
+        "File selected for Exp", // 5
         "File selected for Difference",
         "Exp written to file - ",
-        "Difference written to file - ", //10
-        "Instrumental data file is selected",
-        "Instrumental data file was read",
-        "Instrumental data was aligned with material data with maximums at 0",
-        "Instrument data set has 1 or less data points",
-        "Instrumental data has been cleared and only impulse is left", //15
-        "Instrument data set has 1 or less data points",
-        "",
-        "Instrumental and experimental data doesn't contain enough data",
-        "Instrumental data has no data points",
-        "Experimental data has 1 or no data points",
-        "Instrumental data is not aligned to time 0 with maximum", //20
-        "Experimental data is not aligned to time 0",
-        "Instrumental data still contains noise"
+        "Difference written to file - ",
+        "Instrument data file is selected",
+        "Instrument data file was read", //10
+        "Instrument data was aligned with material data with maximums at 0",
+        "Instrument data has been cleared and only impulse is left",
+        "Interpolation complete"
         };
-    for(int i=0;i<17;i++){
+    for(int i=0;i<functionDescriptionCount;i++){
         cout << i;
         if (i<10)
             cout << "   ";
@@ -906,7 +1003,7 @@ int main()
             cout << "  ";
 
         cout << functionDescription[i];
-        if (i < 16-1)
+        if (i < functionDescriptionCount-1)
             cout << "," << endl;
         else
             cout << "." << endl;
@@ -919,6 +1016,8 @@ int main()
     char nameOfInputFileInstrument[255] = "InstrumentData.txt";
     char nameOfOutputFileExp[255] = "resultExp.txt";
     char nameOfOutputFileNLLS[255] = "resultNLLS.txt"; //NLLS --- non-linear least squares method
+    char nameOfOutputFileExpTwo[255] = "resultExpTwo.txt";
+    char nameOfOutputFileNLLStwo[255] = "resultNLLStwo.txt";
     bool caseTrue = true;
     int errorCode = 0;
 
@@ -928,6 +1027,7 @@ int main()
     while (caseTrue == true){
         cout << "Type function: ";
         cin >> command;
+        clock_t start = clock();
         switch (command) {
         case 0 :
             {
@@ -939,66 +1039,100 @@ int main()
             {
                 inputFileName(nameOfInputFile);
                 cout << functionResponses[1] << endl;
+                errorCode = testList->readFile(nameOfInputFile);
+                switch (errorCode){
+                case 0 :
+                {
+                    cout << functionResponses[2] << endl;
+                    break;
+                }
+                case -1 :
+                {
+                    cout << errorResponses[14] << endl;
+                    break;
+                }
+                case -2 :
+                {
+                    cout << errorResponses[2] << endl;
+                    break;
+                }
+                }
                 break;
             }
         case 2 :
-            {
-                testList->readFile(nameOfInputFile);
-                cout << functionResponses[2] << endl;
-                break;
-            }
-        case 3 :
             {
                 errorCode = testList->clearTillTime(testList->maxPeak());
                 if (errorCode>=0)
                     cout << functionResponses[3] << endl;
                 else if (errorCode == -1)
-                    cout << functionResponses[4] << endl;
+                    cout << errorResponses[1] << endl;
                 break;
             }
-        case 4 :
+        case 3 :
             {
                 errorCode = testList->moveTimeZero();
                 if (errorCode>=0)
-                    cout << functionResponses[5] << endl;
+                    cout << functionResponses[4] << endl;
                 else if (errorCode == -1)
-                    cout << functionResponses[6] << endl;
+                    cout << errorResponses[2] << endl;
                 break;
             }
-        case 5 :
+        case 4 :
             {
                 errorCode = testList->findOneFittinExp();
                 if (errorCode>=0)
                 {}
                 else if (errorCode == -1)
-                    cout << functionResponses[4] << endl;
+                    cout << errorResponses[1] << endl;
+                break;
+            }
+        case 5 :
+            {
+                inputFileName(nameOfOutputFileExp);
+                cout << functionResponses[5] << endl;
+                errorCode = testList->drawExpToFile1(nameOfOutputFileExp);
+                switch (errorCode){
+                case 0 :
+                    {
+                        cout << functionResponses[7] << nameOfOutputFileExp << endl;
+                        break;
+                    }
+                case -1 :
+                    {
+                        cout << errorResponses[1] << endl;
+                        break;
+                    }
+                case -2 :
+                    {
+                        cout << errorResponses[15] << endl;
+                    }
+                }
                 break;
             }
         case 6 :
             {
-                inputFileName(nameOfOutputFileExp);
-                cout << functionResponses[7] << endl;
+                inputFileName(nameOfOutputFileNLLS);
+                cout << functionResponses[6] << endl;
+                errorCode = testList->drawGoodnessToFile1(nameOfOutputFileNLLS);
+                switch (errorCode){
+                case 0 :
+                    {
+                        cout << functionResponses[8] << nameOfOutputFileNLLS << endl;
+                        break;
+                    }
+                case -1 :
+                    {
+                        cout << errorResponses[1] << endl;
+                        break;
+                    }
+                case -2 :
+                    {
+                        cout << errorResponses[15] << endl;
+                    }
+                }
                 break;
             }
         case 7 :
-            {
-                inputFileName(nameOfOutputFileNLLS);
-                cout << functionResponses[8] << endl;
-                break;
-            }
-        case 8 :
-            {
-                testList->drawGoodnessToFile1(nameOfOutputFileExp);
-                cout << functionResponses[9] << nameOfOutputFileExp << endl;
-                break;
-            }
-        case 9 :
-            {
-                testList->drawExpToFile1(nameOfOutputFileNLLS);
-                cout << functionResponses[10] << nameOfOutputFileNLLS << endl;
-                break;
-            }
-        case 10 :
             {
                 errorCode = testList->findTwoFittingExp();
                 if (errorCode>=0)
@@ -1006,77 +1140,202 @@ int main()
                     cout << " Tau0 - " << testList->twoExpFit->tauZero << " A0 - " << testList->twoExpFit->aZero << " Tau1 - " << testList->twoExpFit->tauOne << " A1 - " << testList->twoExpFit->aOne << " Y1 - " << testList->twoExpFit->yZero << " Goodness - " << (testList->countGoodness(testList->twoExpFit->tauZero, testList->twoExpFit->aZero, testList->twoExpFit->tauOne, testList->twoExpFit->aOne, testList->twoExpFit->yZero) / testList->dataPointCount) << endl;
                 }
                 else if (errorCode == -1)
-                    cout << functionResponses[4] << endl; //functionResponses[]
+                    cout << errorResponses[1] << endl; //errorResponses[]
+                break;
+            }
+        case 8 :
+            {
+                inputFileName(nameOfOutputFileExpTwo);
+                cout << functionResponses[5] << endl;
+                errorCode =  testList->drawExpToFile2(nameOfOutputFileExpTwo);
+                switch (errorCode){
+                case 0 :
+                    {
+                cout << functionResponses[7] << nameOfOutputFileExpTwo << endl;
+                break;
+                    }
+                case -1 :
+                    {
+                        cout << errorResponses[1] << endl;
+                        break;
+                    }
+                case -2 :
+                    {
+                        cout << errorResponses[15] << endl;
+                    }
+                }
+                break;
+            }
+        case 9 :
+            {
+                inputFileName(nameOfOutputFileNLLStwo);
+                cout << functionResponses[6] << endl;
+                errorCode = testList->drawGoodnessToFile2(nameOfOutputFileNLLStwo);
+                switch (errorCode){
+                case 0 :
+                    {
+                        cout << functionResponses[8] << nameOfOutputFileNLLStwo << endl;
+                        break;
+                    }
+                case -1 :
+                    {
+                        cout << errorResponses[1] << endl;
+                        break;
+                    }
+                case -2 :
+                    {
+                        cout << errorResponses[15] << endl;
+                    }
+                }
+                break;
+            }
+        case 10 :
+            {
+                inputInstrumentFileName(nameOfInputFileInstrument);
+                cout << functionResponses[9] << endl;
+                errorCode = testList->readFileInstrument(nameOfInputFileInstrument);
+                if (errorCode >= 0)
+                    cout << functionResponses[10] << endl;
+                else
+                    cout << errorResponses[5] << endl;
                 break;
             }
         case 11 :
             {
-                inputInstrumentalFileName(nameOfInputFileInstrument);
-                cout << functionDescription[11] << endl;
+                errorCode = testList->alignInstrumentToMaterial();
+                if (errorCode>=0)
+                    cout << functionResponses[11] << endl;
+                else if (errorCode == -1)
+                    cout << errorResponses[3] << endl;
                 break;
             }
         case 12 :
             {
-                testList->readFileInstrumental(nameOfInputFileInstrument);
-                cout << functionResponses[12] << endl;
+                errorCode = testList->clearInstrument();
+                if (errorCode>=0)
+                    cout << functionResponses[12] << endl;
+                else if (errorCode == -1)
+                    cout << errorResponses[3] << endl;
                 break;
             }
         case 13 :
             {
-                errorCode = testList->alignInstrumentalToMaterial();
-                if (errorCode>=0)
-                    cout << functionResponses[13] << endl;
-                else if (errorCode == -1)
-                    cout << functionResponses[14] << endl;
+                errorCode = testList->interpolateInstrumentData();
+                switch (errorCode){
+                case 0 :
+                    {
+                        cout << functionResponses[14] << endl;
+                        break;
+                    }
+                case -1 :
+                    {
+                        cout << errorResponses[9] << endl;
+                        break;
+                    }
+                case -2 :
+                    {
+                        cout << errorResponses[10] << endl;
+                        break;
+                    }
+                case -3 :
+                    {
+                        cout << errorResponses[11] << endl;
+                    }
+                }
                 break;
+
             }
         case 14 :
-            {
-                errorCode = testList->clearInstrumental();
-                if (errorCode>=0)
-                    cout << functionResponses[15] << endl;
-                else if (errorCode == -1)
-                    cout << functionResponses[16] << endl;
-                break;
-            }
-        case 15 :
             {
                 errorCode = testList->deconvoluteData();
                 // cout << "Difference written to file - " << nameOfOutputFileNLLS << endl;
                 switch (errorCode){
                 case 0:
                     {
-                        cout << functionResponses[17] << endl;
+                        //cout << functionResponses[14] << endl;
                         break;
                     }
                 case -1:
                     {
-                        cout << functionResponses[18] << endl;
+                        cout << errorResponses[4] << endl;
                         break;
                     }
                 case -2:
                     {
-                        cout << functionResponses[19] << endl;
+                        cout << errorResponses[5] << endl;
                         break;
                     }
                 case -3:
                     {
-                        cout << functionResponses[20] << endl;
+                        cout << errorResponses[1] << endl;
                         break;
                     }
                 case -4:
                     {
-                        cout << functionResponses[21] << endl;
+                        cout << errorResponses[6] << endl;
                         break;
                     }
                 case -5:
                     {
-                        cout << functionResponses[22] << endl;
+                        cout << errorResponses[7] << endl;
                         break;
                     }
                 case -6:
                     {
-                        cout << functionResponses[23] << endl;
+                        cout << errorResponses[8] << endl;
+                        break;
+                    }
+                case -7:
+                    {
+                        cout << errorResponses[12] << endl;
+                        break;
+                    }
+                case -8:
+                    {
+                        cout << errorResponses[13] << endl;
+                        break;
+                    }
+                }
+                break;
+
+            }
+        case 15 :
+            {
+                errorCode = testList->deconvoluteDataTwoExp();
+                switch (errorCode){
+                case 0:
+                    {
+                        // cout << errorResponses[17] << endl;
+                        break;
+                    }
+                case -1:
+                    {
+                        cout << errorResponses[4] << endl;
+                        break;
+                    }
+                case -2:
+                    {
+                        cout << errorResponses[5] << endl;
+                        break;
+                    }
+                case -3:
+                    {
+                        cout << errorResponses[1] << endl;
+                        break;
+                    }
+                case -4:
+                    {
+                        cout << errorResponses[6] << endl;
+                        break;
+                    }
+                case -5:
+                    {
+                        cout << errorResponses[7] << endl;
+                        break;
+                    }
+                case -6:
+                    {
+                        cout << errorResponses[8] << endl;
                         break;
                     }
                 }
@@ -1084,52 +1343,14 @@ int main()
             }
         case 16 :
             {
-                errorCode = testList->deconvoluteDataTwoExp();
-                switch (errorCode){
-                case 0:
-                    {
-                        cout << functionResponses[17] << endl;
-                        break;
-                    }
-                case -1:
-                    {
-                        cout << functionResponses[18] << endl;
-                        break;
-                    }
-                case -2:
-                    {
-                        cout << functionResponses[19] << endl;
-                        break;
-                    }
-                case -3:
-                    {
-                        cout << functionResponses[20] << endl;
-                        break;
-                    }
-                case -4:
-                    {
-                        cout << functionResponses[21] << endl;
-                        break;
-                    }
-                case -5:
-                    {
-                        cout << functionResponses[22] << endl;
-                        break;
-                    }
-                case -6:
-                    {
-                        cout << functionResponses[23] << endl;
-                        break;
-                    }
-                }
-                break;
+                testList->printInstrumentData();
             }
-            case 17 :
-                {
-                    errorCode = testList->interpolateInstrumentData(125);
-
-                }
         }
+
+        clock_t stop = clock();
+        double elapsed = (double)(stop - start) * 1000.0 / CLOCKS_PER_SEC;
+        printf("Time elapsed in ms: %f", elapsed);
+        cout << endl;
         errorCode = 0;
     }
     return 0;
