@@ -1,10 +1,18 @@
+/******************************************************************
+Code developed by Edgars Straumanis - edgars.straumanis@gmail.com
+The software solves a problem with elementary data from luminescence
+Data files used for this program must be located in same folder and
+will be returned in the location as picked from.
+Created on 02/28/2019
+Last update 5/26/2019
+******************************************************************/
 #include <iostream>
 #include <fstream>
 #include <math.h>
 #include <windows.h>
 
 #include <time.h>
-// V1.3.1
+// V1.4.0
 
 using namespace std;
 
@@ -773,7 +781,8 @@ struct linkedList{
             offsetStart = bestCombination[8];
             offsetEnd = bestCombination[9];
         }
-        cout << (bestCombination[0]+bestCombination[1])/2 << " // Tau - " << (bestCombination[2]+bestCombination[3])/2 << " // TauTwo - " << (bestCombination[4]+bestCombination[5])/2 << " //  A0 - " << materialFirst->deconvolutionSum << " Noise " << (bestCombination[6]+bestCombination[7])/2 << " timeOffset " << (bestCombination[8]+bestCombination[9])/2 << " " << bestGoodness << endl;
+        cout << (bestCombination[0]+bestCombination[1])/2 << " // Tau - " << (bestCombination[2]+bestCombination[3])/2 << " // TauTwo - " << (bestCombination[4]+bestCombination[5])/2 <<
+            " //  A0 - " << materialFirst->deconvolutionSum << " Noise " << (bestCombination[6]+bestCombination[7])/2 << " timeOffset " << (bestCombination[8]+bestCombination[9])/2 << " " << bestGoodness << endl;
     }
 
     // To count the NLLS values
